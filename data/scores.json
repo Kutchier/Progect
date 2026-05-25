@@ -1,0 +1,427 @@
+[
+  {
+    "score": 2282,
+    "players": [
+      {
+        "name": "бибабоба",
+        "class": "Плут",
+        "level": 1
+      },
+      {
+        "name": "бибис",
+        "class": "Плут",
+        "level": 3
+      },
+      {
+        "name": "абобус",
+        "class": "Плут",
+        "level": 1
+      },
+      {
+        "name": "пенис",
+        "class": "Плут",
+        "level": 3
+      }
+    ],
+    "won": false,
+    "floor": 2,
+    "timestamp": "2026-05-20T04:54:51.778Z"
+  },
+  {
+    "score": 647,
+    "players": [
+      {
+        "name": "чевапчич",
+        "class": "Воин",
+        "level": 2
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T12:25:09.758Z"
+  },
+  {
+    "score": 624,
+    "players": [
+      {
+        "name": "Ева",
+        "class": "Плут",
+        "level": 2
+      },
+      {
+        "name": "Ланцель",
+        "class": "Маг",
+        "level": 2
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T13:30:51.515Z"
+  },
+  {
+    "score": 590,
+    "players": [
+      {
+        "name": "Ева",
+        "class": "Жрец",
+        "level": 2
+      },
+      {
+        "name": "Ланцель",
+        "class": "Воин",
+        "level": 2
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T13:04:27.281Z"
+  },
+  {
+    "score": 460,
+    "players": [
+      {
+        "name": "Амадей",
+        "class": "Воин",
+        "level": 1
+      },
+      {
+        "name": "галахад",
+        "class": "Воин",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T06:21:01.442Z"
+  },
+  {
+    "score": 456,
+    "players": [
+      {
+        "name": "321",
+        "class": "Воин",
+        "level": 1
+      },
+      {
+        "name": "билибобик",
+        "class": "Маг",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T04:19:20.821Z"
+  },
+  {
+    "score": 448,
+    "players": [
+      {
+        "name": "бибабоба",
+        "class": "Плут",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T04:30:35.797Z"
+  },
+  {
+    "score": 398,
+    "players": [
+      {
+        "name": "Амадей",
+        "class": "Жрец",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T06:16:54.541Z"
+  },
+  {
+    "score": 379,
+    "players": [
+      {
+        "name": "Балерион",
+        "class": "Жрец",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T12:06:32.268Z"
+  },
+  {
+    "score": 352,
+    "players": [
+      {
+        "name": "тиркстер",
+        "class": "Воин",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-14T22:53:08.181Z"
+  },
+  {
+    "score": 348,
+    "players": [
+      {
+        "name": "123",
+        "class": "Маг",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-15T00:21:17.680Z"
+  },
+  {
+    "score": 322,
+    "players": [
+      {
+        "name": "Галахад",
+        "class": "Воин",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T06:07:19.178Z"
+  },
+  {
+    "score": 306,
+    "players": [
+      {
+        "name": "баребух",
+        "class": "Маг",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T13:31:28.936Z"
+  },
+  {
+    "score": 278,
+    "players": [
+      {
+        "name": "А",
+        "class": "Воин",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T10:25:39.688Z"
+  },
+  {
+    "score": 274,
+    "players": [
+      {
+        "name": "мандарин",
+        "class": "Маг",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T13:55:23.650Z"
+  },
+  {
+    "score": 269,
+    "players": [
+      {
+        "name": "213123",
+        "class": "Плут",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T12:17:10.847Z"
+  },
+  {
+    "score": 242,
+    "players": [
+      {
+        "name": "баребух",
+        "class": "Плут",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T13:32:45.530Z"
+  },
+  {
+    "score": 215,
+    "players": [
+      {
+        "name": "А",
+        "class": "Маг",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T10:42:48.614Z"
+  },
+  {
+    "score": 212,
+    "players": [
+      {
+        "name": "А",
+        "class": "Воин",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T10:41:18.593Z"
+  },
+  {
+    "score": 208,
+    "players": [
+      {
+        "name": "Балерион",
+        "class": "Плут",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T12:04:46.619Z"
+  },
+  {
+    "score": 200,
+    "players": [
+      {
+        "name": "А",
+        "class": "Жрец",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T10:32:42.212Z"
+  },
+  {
+    "score": 194,
+    "players": [
+      {
+        "name": "серый глист",
+        "class": "Маг",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T12:20:41.920Z"
+  },
+  {
+    "score": 190,
+    "players": [
+      {
+        "name": "123",
+        "class": "Плут",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T04:04:36.607Z"
+  },
+  {
+    "score": 181,
+    "players": [
+      {
+        "name": "Балерион",
+        "class": "Воин",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T12:01:08.490Z"
+  },
+  {
+    "score": 172,
+    "players": [
+      {
+        "name": "123",
+        "class": "Воин",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-15T00:53:50.872Z"
+  },
+  {
+    "score": 166,
+    "players": [
+      {
+        "name": "123",
+        "class": "Жрец",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T04:03:04.078Z"
+  },
+  {
+    "score": 158,
+    "players": [
+      {
+        "name": "123",
+        "class": "Воин",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T03:50:25.810Z"
+  },
+  {
+    "score": 151,
+    "players": [
+      {
+        "name": "А",
+        "class": "Плут",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T10:28:40.944Z"
+  },
+  {
+    "score": 150,
+    "players": [
+      {
+        "name": "мандарин",
+        "class": "Воин",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-13T13:53:56.791Z"
+  },
+  {
+    "score": 127,
+    "players": [
+      {
+        "name": "А",
+        "class": "Маг",
+        "level": 1
+      }
+    ],
+    "won": false,
+    "floor": 1,
+    "timestamp": "2026-05-20T11:07:28.881Z"
+  }
+]
