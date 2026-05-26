@@ -1318,6 +1318,7 @@ function renderPlayerStats(players) {
     const effects = renderEffectBadges(ch.effects || []);
     const isMe = p.socketId === S.mySocketId;
 
+<<<<<<< HEAD
     const ultKills = ch.ultKills || 0;
     const ultNeeded = ch.ultKillsNeeded || 5;
     const ultReady = ch.ultReady || false;
@@ -1343,6 +1344,11 @@ function renderPlayerStats(players) {
                data-ult-needed="${ultNeeded}">
             <span class="ult-orb-icon">${ultReady ? '★' : ultKills > 0 ? ultKills : '○'}</span>
           </div>
+=======
+    return `
+      <div class="player-stat-card ${!ch.isAlive ? 'dead' : ''}" id="psc-${p.socketId}">
+        <div class="psc-header">
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
           <div class="psc-name">${ch.symbol} ${p.name}${isMe ? ' ◄' : ''}${p.isHost ? ' ★' : ''}${ch.isAI ? ' 🤖' : ''}</div>
           <div class="psc-class">${ch.className} Lv${ch.level}</div>
         </div>
@@ -1367,6 +1373,7 @@ function renderPlayerStats(players) {
       </div>
     `;
   }).join('');
+<<<<<<< HEAD
 
   // Wire up ult orb click handlers after rendering
   el.querySelectorAll('.ult-orb-btn').forEach(orbEl => {
@@ -1378,6 +1385,8 @@ function renderPlayerStats(players) {
       socket.emit('player_action', { type: 'ultimate' });
     });
   });
+=======
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 }
 
 function renderEffectBadges(effects) {

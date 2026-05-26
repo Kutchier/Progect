@@ -31,3 +31,28 @@ build/
 *.log
 *.tmp
 "@ | Out-File -FilePath ".gitignore" -Encoding utf8
+
+# Зависимости Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Переменные окружения и секреты
+.env
+*.env.*
+!sample.env
+token*.txt
+*.key
+*.pem
+
+# Логи и временные файлы
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# IDE и редакторы
+.vscode/
+.idea/
+*.swp
+*~

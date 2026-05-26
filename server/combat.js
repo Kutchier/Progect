@@ -91,7 +91,10 @@ function processPlayerAction(gameState, playerId, action) {
 
       if (!target.isAlive) {
         logs.push(`${target.name} повержен!`);
+<<<<<<< HEAD
         incrementUltKills(player, target.isBoss ? 5 : 1);
+=======
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       }
       break;
     }
@@ -160,6 +163,7 @@ function processPlayerAction(gameState, playerId, action) {
       break;
     }
 
+<<<<<<< HEAD
     case 'ultimate': {
       if (!player.ultReady) return { logs: ['Ультимативная атака ещё не готова!'], stateChanged: false };
       const ultLogs = useUltimate(gameState, player);
@@ -169,6 +173,8 @@ function processPlayerAction(gameState, playerId, action) {
       break;
     }
 
+=======
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     default:
       return { logs: ['Неизвестное действие.'], stateChanged: false };
   }
@@ -177,6 +183,7 @@ function processPlayerAction(gameState, playerId, action) {
   return { logs, stateChanged: true };
 }
 
+<<<<<<< HEAD
 function incrementUltKills(player, amount = 1) {
   player.ultKills = (player.ultKills || 0) + amount;
   if (!player.ultReady && player.ultKills >= (player.ultKillsNeeded || 5)) {
@@ -184,6 +191,8 @@ function incrementUltKills(player, amount = 1) {
   }
 }
 
+=======
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 function useAbility(gameState, player, ability, targetId, targetCell) {
   const logs = [];
   const room = gameState.floor.rooms[gameState.floor.currentRoomIndex];
@@ -255,10 +264,14 @@ function useAbility(gameState, player, ability, targetId, targetCell) {
           logs.push(`${target.name} замедлен!`);
         }
 
+<<<<<<< HEAD
         if (!target.isAlive) {
           logs.push(`${target.name} повержен!`);
           incrementUltKills(player, target.isBoss ? 5 : 1);
         }
+=======
+        if (!target.isAlive) logs.push(`${target.name} повержен!`);
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       }
       break;
     }
@@ -370,6 +383,7 @@ function useAbility(gameState, player, ability, targetId, targetCell) {
   return logs;
 }
 
+<<<<<<< HEAD
 function useUltimate(gameState, player) {
   const logs = [];
   const room = gameState.floor.rooms[gameState.floor.currentRoomIndex];
@@ -455,6 +469,8 @@ function useUltimate(gameState, player) {
   return logs;
 }
 
+=======
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 function useItem(gameState, player, itemId, targetId) {
   const logs = [];
   const alivePlayers = Object.values(gameState.players).filter(p => p.isAlive);

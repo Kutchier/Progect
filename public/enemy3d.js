@@ -145,8 +145,13 @@ window.Enemy3D = (() => {
     g.add(bx(robeDk, 1.12, 0.65, 0.94, 0, 1.35, 0.06));
     g.add(bx(eyeM, 0.2, 0.2, 0.07, -0.22, 1.1, 0.45));
     g.add(bx(eyeM, 0.2, 0.2, 0.07,  0.22, 1.1, 0.45));
+<<<<<<< HEAD
     g.add(cy(staffC, 0.055, 0.055, 2.7, 9, 1.5, -0.15, 0.35));
     const orb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12),
+=======
+    g.add(cy(staffC, 0.055, 0.055, 2.7, 5, 1.5, -0.15, 0.35));
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 6),
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       new THREE.MeshLambertMaterial({ color: 0x3300aa, emissive: 0x6622ff, flatShading: true }));
     orb.position.set(1.5, 1.35, 0.35);
     g.add(orb);
@@ -162,7 +167,11 @@ window.Enemy3D = (() => {
     g.add(bx(em(0xff2200), 0.2, 0.2, 0.07, 0, 1.75 + 0.1, 0.52));
     // Club
     const clubM = m(0x1a1808);
+<<<<<<< HEAD
     g.add(cy(clubM, 0.1, 0.08, 1.5, 9, -1.05 - 0.52 - 0.12, -0.5, 0));
+=======
+    g.add(cy(clubM, 0.1, 0.08, 1.5, 5, -1.05 - 0.52 - 0.12, -0.5, 0));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     g.add(bx(m(0x141206), 0.35, 0.42, 0.35, -1.05 - 0.52 - 0.12, -1.55, 0));
     return g;
   }
@@ -195,7 +204,11 @@ window.Enemy3D = (() => {
     for (let i = 0; i < 3; i++) g.add(bx(m(0xd8d8c0), 0.1, 0.18, 0.05, -0.15 + i * 0.15, 0.6, 0.4));
     // Crown band + spikes
     g.add(bx(crownC, 1.02, 0.22, 0.88, 0, 1.65, 0));
+<<<<<<< HEAD
     for (let i = 0; i < 5; i++) g.add(cn(crownC, 0.08, 0.35, 7, -0.4 + i * 0.2, 1.87, 0));
+=======
+    for (let i = 0; i < 5; i++) g.add(cn(crownC, 0.08, 0.35, 4, -0.4 + i * 0.2, 1.87, 0));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     g.add(bx(eyeM, 0.28, 0.28, 0.06, -0.22, 1.16, 0.44));
     g.add(bx(eyeM, 0.28, 0.28, 0.06,  0.22, 1.16, 0.44));
     return g;
@@ -204,10 +217,17 @@ window.Enemy3D = (() => {
   function buildDemon() {
     const g = humanoid({ bodyC: 0x280e18, legsC: 0x200810, headC: 0x2e0e1c, eyeC: 0xff8800, tw: 1.45, aw: 0.44, hw: 1.1 });
     const hornM = m(0x180408);
+<<<<<<< HEAD
     g.add(cn(hornM, 0.12, 0.72, 7, -0.38, 1.98, 0, 0, -0.36));
     g.add(cn(hornM, 0.12, 0.72, 7,  0.38, 1.98, 0, 0,  0.36));
     g.add(cy(m(0x200810), 0.07, 0.13, 0.8, 8, 0, -2.0, -0.4, 0.4));
     g.add(cn(m(0x180408), 0.15, 0.3, 6, 0, -2.56, -0.22, 0.4));
+=======
+    g.add(cn(hornM, 0.12, 0.72, 4, -0.38, 1.98, 0, 0, -0.36));
+    g.add(cn(hornM, 0.12, 0.72, 4,  0.38, 1.98, 0, 0,  0.36));
+    g.add(cy(m(0x200810), 0.07, 0.13, 0.8, 4, 0, -2.0, -0.4, 0.4));
+    g.add(cn(m(0x180408), 0.15, 0.3, 3, 0, -2.56, -0.22, 0.4));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     return g;
   }
 
@@ -224,7 +244,11 @@ window.Enemy3D = (() => {
     g.add(bx(eyeM, 0.28, 0.28, 0.08, -0.42, 2.48, 0.86));
     g.add(bx(eyeM, 0.28, 0.28, 0.08,  0.42, 2.48, 0.86));
     // Spine spikes
+<<<<<<< HEAD
     for (let i = 0; i < 5; i++) g.add(cn(scDk, 0.1, 0.55 - i * 0.07, 7, 0, 1.0 - i * 0.28, -0.78));
+=======
+    for (let i = 0; i < 5; i++) g.add(cn(scDk, 0.1, 0.55 - i * 0.07, 4, 0, 1.0 - i * 0.28, -0.78));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     // Front legs
     g.add(bx(scDk, 0.65, 1.3, 0.65, -1.45, -0.7, 0.4));
     g.add(bx(scDk, 0.65, 1.3, 0.65,  1.45, -0.7, 0.4));
@@ -239,24 +263,41 @@ window.Enemy3D = (() => {
     const g = new THREE.Group();
     const bd = m(0x261c3a), bdLt = m(0x2a2050), eyeM = em(0xff2200), crownC = m(0x5a3808);
     // Spider abdomen + thorax
+<<<<<<< HEAD
     g.add(sp(m(0x1e1530), 0.85, 12, 0, -1.1, -0.4));
     g.add(sp(bdLt, 0.65, 12, 0, -0.1, -0.15));
+=======
+    g.add(sp(m(0x1e1530), 0.85, 6, 0, -1.1, -0.4));
+    g.add(sp(bdLt, 0.65, 6, 0, -0.1, -0.15));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     // Human torso + head
     g.add(bx(bd, 1.2, 1.1, 0.7, 0, 0.62, 0));
     g.add(bx(bdLt, 0.95, 0.9, 0.84, 0, 1.55, 0));
     // Crown
     g.add(bx(crownC, 1.0, 0.2, 0.86, 0, 2.06, 0));
+<<<<<<< HEAD
     for (let i = 0; i < 3; i++) g.add(cn(crownC, 0.07, 0.3, 7, -0.3 + i * 0.3, 2.22, 0));
+=======
+    for (let i = 0; i < 3; i++) g.add(cn(crownC, 0.07, 0.3, 4, -0.3 + i * 0.3, 2.22, 0));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     // 4 pairs of eyes
     for (let i = 0; i < 4; i++) g.add(bx(eyeM, 0.14, 0.14, 0.06, -0.34 + i * 0.24, 1.58, 0.43));
     // Spider legs (8 total)
     for (let i = 0; i < 4; i++) {
       const lm = m(0x201530);
+<<<<<<< HEAD
       const lL = cy(lm, 0.06, 0.04, 1.0, 8, -0.62, -0.35, 0);
       lL.rotation.z =  (0.4 + i * 0.12);
       lL.rotation.x = (-0.3 + i * 0.12);
       g.add(lL);
       const lR = cy(lm, 0.06, 0.04, 1.0, 8,  0.62, -0.35, 0);
+=======
+      const lL = cy(lm, 0.06, 0.04, 1.0, 4, -0.62, -0.35, 0);
+      lL.rotation.z =  (0.4 + i * 0.12);
+      lL.rotation.x = (-0.3 + i * 0.12);
+      g.add(lL);
+      const lR = cy(lm, 0.06, 0.04, 1.0, 4,  0.62, -0.35, 0);
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       lR.rotation.z = -(0.4 + i * 0.12);
       lR.rotation.x = (-0.3 + i * 0.12);
       g.add(lR);
@@ -275,9 +316,15 @@ window.Enemy3D = (() => {
       r.add(bx(ratDk, 0.45, 0.42, 0.5, 0, 0.22, 0.55));
       r.add(bx(eyeM, 0.1, 0.1, 0.05, -0.12, 0.28, 0.78));
       r.add(bx(eyeM, 0.1, 0.1, 0.05,  0.12, 0.28, 0.78));
+<<<<<<< HEAD
       r.add(cn(ratDk, 0.08, 0.2, 7, -0.18, 0.6, 0.4));
       r.add(cn(ratDk, 0.08, 0.2, 7,  0.18, 0.6, 0.4));
       r.add(cy(ratDk, 0.04, 0.03, 0.7, 8, 0, 0, -0.55, 0.3));
+=======
+      r.add(cn(ratDk, 0.08, 0.2, 4, -0.18, 0.6, 0.4));
+      r.add(cn(ratDk, 0.08, 0.2, 4,  0.18, 0.6, 0.4));
+      r.add(cy(ratDk, 0.04, 0.03, 0.7, 4, 0, 0, -0.55, 0.3));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       r.position.set(x, y, z);
       r.scale.setScalar(sc);
       return r;
@@ -292,7 +339,11 @@ window.Enemy3D = (() => {
   function buildCaveBat() {
     const g = new THREE.Group();
     const wingC = m(0x1e1430), wingDk = m(0x160e24), bodyC = m(0x241838), eyeM = em(0xff4422);
+<<<<<<< HEAD
     g.add(sp(bodyC, 0.38, 12, 0, 0, 0));
+=======
+    g.add(sp(bodyC, 0.38, 6, 0, 0, 0));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     g.add(bx(bodyC, 0.48, 0.44, 0.44, 0, 0.42, 0));
     g.add(bx(eyeM, 0.12, 0.12, 0.05, -0.12, 0.46, 0.24));
     g.add(bx(eyeM, 0.12, 0.12, 0.05,  0.12, 0.46, 0.24));
@@ -302,8 +353,13 @@ window.Enemy3D = (() => {
     wR.rotation.z = -0.35; wR.rotation.x = -0.15; g.add(wR);
     g.add(bx(wingC, 0.9, 0.06, 0.7, -0.6, 0.08, 0));
     g.add(bx(wingC, 0.9, 0.06, 0.7,  0.6, 0.08, 0));
+<<<<<<< HEAD
     g.add(cy(m(0x1e1430), 0.05, 0.04, 0.4, 8, -0.15, -0.46, 0, 0.2));
     g.add(cy(m(0x1e1430), 0.05, 0.04, 0.4, 8,  0.15, -0.46, 0, 0.2));
+=======
+    g.add(cy(m(0x1e1430), 0.05, 0.04, 0.4, 4, -0.15, -0.46, 0, 0.2));
+    g.add(cy(m(0x1e1430), 0.05, 0.04, 0.4, 4,  0.15, -0.46, 0, 0.2));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     g.scale.setScalar(1.1);
     return g;
   }
@@ -314,8 +370,13 @@ window.Enemy3D = (() => {
       scl: 0.82, hw: 1.05, hh: 0.88
     });
     g.add(bx(m(0x22300e), 0.55, 0.35, 0.45, 0, 1.04, 0.56));
+<<<<<<< HEAD
     g.add(cn(m(0x2a2208), 0.07, 0.28, 7, -0.28, 1.72, 0, 0, -0.22));
     g.add(cn(m(0x2a2208), 0.07, 0.28, 7,  0.28, 1.72, 0, 0,  0.22));
+=======
+    g.add(cn(m(0x2a2208), 0.07, 0.28, 4, -0.28, 1.72, 0, 0, -0.22));
+    g.add(cn(m(0x2a2208), 0.07, 0.28, 4,  0.28, 1.72, 0, 0,  0.22));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     return g;
   }
 
@@ -324,6 +385,7 @@ window.Enemy3D = (() => {
       bodyC: 0x302428, legsC: 0x281e22, headC: 0x302428, eyeC: 0xffaa00,
       scl: 1.08, tw: 1.4, th: 1.45, hw: 1.15, hh: 1.05, hd: 0.96
     });
+<<<<<<< HEAD
     g.add(cn(m(0x281e22), 0.12, 0.55, 7, -0.38, 2.28, 0, 0, -0.22));
     g.add(cn(m(0x281e22), 0.12, 0.55, 7,  0.38, 2.28, 0, 0,  0.22));
     g.add(bx(m(0x261c22), 0.6, 0.4, 0.52, 0, 1.12, 0.56));
@@ -331,12 +393,22 @@ window.Enemy3D = (() => {
     const clawM = m(0xd8d0c0);
     g.add(cn(clawM, 0.06, 0.22, 6, -1.3, -0.38, 0.15, Math.PI * 0.5));
     g.add(cn(clawM, 0.06, 0.22, 6,  1.3, -0.38, 0.15, Math.PI * 0.5));
+=======
+    g.add(cn(m(0x281e22), 0.12, 0.55, 4, -0.38, 2.28, 0, 0, -0.22));
+    g.add(cn(m(0x281e22), 0.12, 0.55, 4,  0.38, 2.28, 0, 0,  0.22));
+    g.add(bx(m(0x261c22), 0.6, 0.4, 0.52, 0, 1.12, 0.56));
+    // Claws
+    const clawM = m(0xd8d0c0);
+    g.add(cn(clawM, 0.06, 0.22, 3, -1.3, -0.38, 0.15, Math.PI * 0.5));
+    g.add(cn(clawM, 0.06, 0.22, 3,  1.3, -0.38, 0.15, Math.PI * 0.5));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     return g;
   }
 
   function buildGiantSpider() {
     const g = new THREE.Group();
     const bd = m(0x201840), bdLt = m(0x281e48), eyeM = em(0xcc0000);
+<<<<<<< HEAD
     g.add(sp(bdLt, 1.05, 12, 0, -0.9, -0.3));
     g.add(sp(bd,   0.72, 12, 0,  0,    0.1));
     for (let i = 0; i < 3; i++) g.add(bx(eyeM, 0.16, 0.16, 0.06, -0.25 + i * 0.25, 0.4, 0.62));
@@ -349,6 +421,20 @@ window.Enemy3D = (() => {
       lL.rotation.x = (-0.25 + i * 0.1);
       g.add(lL);
       const lR = cy(lm, 0.06, 0.04, 1.05, 8,  0.65, -0.1, 0);
+=======
+    g.add(sp(bdLt, 1.05, 6, 0, -0.9, -0.3));
+    g.add(sp(bd,   0.72, 6, 0,  0,    0.1));
+    for (let i = 0; i < 3; i++) g.add(bx(eyeM, 0.16, 0.16, 0.06, -0.25 + i * 0.25, 0.4, 0.62));
+    g.add(cn(m(0x180e2e), 0.1, 0.45, 4, -0.22, -0.2, 0.76, Math.PI * 0.5, -0.3));
+    g.add(cn(m(0x180e2e), 0.1, 0.45, 4,  0.22, -0.2, 0.76, Math.PI * 0.5,  0.3));
+    for (let i = 0; i < 4; i++) {
+      const lm = m(0x201840);
+      const lL = cy(lm, 0.06, 0.04, 1.05, 4, -0.65, -0.1, 0);
+      lL.rotation.z =  (0.5 + i * 0.15);
+      lL.rotation.x = (-0.25 + i * 0.1);
+      g.add(lL);
+      const lR = cy(lm, 0.06, 0.04, 1.05, 4,  0.65, -0.1, 0);
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       lR.rotation.z = -(0.5 + i * 0.15);
       lR.rotation.x = (-0.25 + i * 0.1);
       g.add(lR);
@@ -364,7 +450,11 @@ window.Enemy3D = (() => {
     g.add(bx(ghostC,  1.4, 2.5, 0.8,  0, -0.2, 0));
     g.add(bx(ghostLt, 1.6, 0.7, 0.9,  0, -1.3, 0));
     g.add(bx(ghostC,  1.2, 1.1, 0.75, 0,  1.0, 0));
+<<<<<<< HEAD
     for (let i = 0; i < 3; i++) g.add(cn(m(0x0a061e, true, 0.5), 0.12, 0.65, 7, -0.45 + i * 0.45, -1.85, 0));
+=======
+    for (let i = 0; i < 3; i++) g.add(cn(m(0x0a061e, true, 0.5), 0.12, 0.65, 4, -0.45 + i * 0.45, -1.85, 0));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     g.add(bx(eyeM, 0.28, 0.28, 0.06, -0.22, 1.04, 0.38));
     g.add(bx(eyeM, 0.28, 0.28, 0.06,  0.22, 1.04, 0.38));
     return g;
@@ -386,7 +476,11 @@ window.Enemy3D = (() => {
     // Sword
     g.add(bx(swordC, 0.12, 2.2, 0.08, 1.52, 0.2, 0.3));
     g.add(bx(swordB, 0.55, 0.12, 0.12, 1.52, -0.55, 0.3));
+<<<<<<< HEAD
     g.add(cn(swordC, 0.07, 0.28, 7, 1.52, 1.35, 0.3));
+=======
+    g.add(cn(swordC, 0.07, 0.28, 4, 1.52, 1.35, 0.3));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     return g;
   }
 
@@ -414,8 +508,13 @@ window.Enemy3D = (() => {
       bodyC: 0x2a2430, legsC: 0x241c28, headC: 0x2a2430, eyeC: 0xddaa00,
       scl: 0.95, lh: 0.8, lw: 0.35
     });
+<<<<<<< HEAD
     g.add(cn(m(0x1c1418), 0.06, 0.2, 6, -0.25, -1.82, 0.15, Math.PI * 0.5));
     g.add(cn(m(0x1c1418), 0.06, 0.2, 6,  0.25, -1.82, 0.15, Math.PI * 0.5));
+=======
+    g.add(cn(m(0x1c1418), 0.06, 0.2, 3, -0.25, -1.82, 0.15, Math.PI * 0.5));
+    g.add(cn(m(0x1c1418), 0.06, 0.2, 3,  0.25, -1.82, 0.15, Math.PI * 0.5));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     // Wings replace arms
     const wM = m(0x241e18), wDk = m(0x1a1610);
     const wL = new THREE.Group();
@@ -426,7 +525,11 @@ window.Enemy3D = (() => {
     wR.add(bx(wM,  1.55, 0.08, 1.2, 0.75, 0, 0));
     wR.add(bx(wDk, 0.9,  0.07, 0.9, 0.4, 0.1, -0.15));
     wR.rotation.z = -0.3; wR.position.set(0.72, 0.3, 0); g.add(wR);
+<<<<<<< HEAD
     g.add(cn(m(0xaa8800), 0.1, 0.32, 7, 0, 1.12, 0.55, Math.PI * 0.5));
+=======
+    g.add(cn(m(0xaa8800), 0.1, 0.32, 4, 0, 1.12, 0.55, Math.PI * 0.5));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     return g;
   }
 
@@ -441,11 +544,19 @@ window.Enemy3D = (() => {
     g.add(bx(skin, 1.0, 1.0, 0.9, 0, 1.1, 0));
     // Witch hat (brim + cone)
     g.add(bx(hatC, 1.6, 0.12, 1.4, 0, 1.72, 0));
+<<<<<<< HEAD
     g.add(cn(hatC, 0.5, 1.4, 9, 0, 2.48, 0));
     g.add(bx(eyeM, 0.2, 0.2, 0.07, -0.22, 1.1, 0.46));
     g.add(bx(eyeM, 0.2, 0.2, 0.07,  0.22, 1.1, 0.46));
     g.add(cy(staffC, 0.055, 0.055, 2.8, 9, -1.5, -0.15, 0.32));
     const orb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12),
+=======
+    g.add(cn(hatC, 0.5, 1.4, 5, 0, 2.48, 0));
+    g.add(bx(eyeM, 0.2, 0.2, 0.07, -0.22, 1.1, 0.46));
+    g.add(bx(eyeM, 0.2, 0.2, 0.07,  0.22, 1.1, 0.46));
+    g.add(cy(staffC, 0.055, 0.055, 2.8, 5, -1.5, -0.15, 0.32));
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 6),
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       new THREE.MeshLambertMaterial({ color: 0x3300aa, emissive: 0x6622ff, flatShading: true }));
     orb.position.set(-1.5, 1.28, 0.32);
     g.add(orb);
@@ -461,9 +572,15 @@ window.Enemy3D = (() => {
     const iceM = m(0x2a4868);
     g.add(bx(m(0x162c44), 0.75, 0.38, 0.9, -1.1, 0.88, 0));
     g.add(bx(m(0x162c44), 0.75, 0.38, 0.9,  1.1, 0.88, 0));
+<<<<<<< HEAD
     g.add(cn(iceM, 0.1, 0.45, 7, -1.1, 1.15, 0));
     g.add(cn(iceM, 0.1, 0.45, 7,  0.0, 1.15, 0));
     g.add(cn(iceM, 0.1, 0.45, 7,  1.1, 1.15, 0));
+=======
+    g.add(cn(iceM, 0.1, 0.45, 4, -1.1, 1.15, 0));
+    g.add(cn(iceM, 0.1, 0.45, 4,  0.0, 1.15, 0));
+    g.add(cn(iceM, 0.1, 0.45, 4,  1.1, 1.15, 0));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     return g;
   }
 
@@ -484,7 +601,11 @@ window.Enemy3D = (() => {
     g.add(bx(eyeM, 0.22, 0.22, 0.07, -0.32, 1.55, 1.95));
     g.add(bx(eyeM, 0.22, 0.22, 0.07,  0.32, 1.55, 1.95));
     for (let i = 0; i < 4; i++) g.add(bx(maneC, 0.18, 0.55 - i * 0.05, 0.18, 0, 1.3 + i * 0.05, 0.9 - i * 0.1));
+<<<<<<< HEAD
     g.add(cn(m(0x18142a), 0.08, 0.5, 7, 0, 1.95, 1.7, -0.3));
+=======
+    g.add(cn(m(0x18142a), 0.08, 0.5, 4, 0, 1.95, 1.7, -0.3));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     g.scale.setScalar(0.62);
     return g;
   }
@@ -495,11 +616,19 @@ window.Enemy3D = (() => {
       scl: 1.12, tw: 1.6, th: 1.5, hw: 1.2, hh: 1.1, hd: 1.0
     });
     const hornM = m(0x180408);
+<<<<<<< HEAD
     g.add(cn(hornM, 0.12, 0.65, 7, -0.42, 2.12, 0, 0, -0.4));
     g.add(cn(hornM, 0.12, 0.65, 7,  0.42, 2.12, 0, 0,  0.4));
     g.add(cn(hornM, 0.09, 0.4,  7,  0.0,  2.18, 0, 0,  0.0));
     g.add(cn(hornM, 0.09, 0.45, 7, -0.72, 1.95, 0, 0, -0.6));
     g.add(cn(hornM, 0.09, 0.45, 7,  0.72, 1.95, 0, 0,  0.6));
+=======
+    g.add(cn(hornM, 0.12, 0.65, 4, -0.42, 2.12, 0, 0, -0.4));
+    g.add(cn(hornM, 0.12, 0.65, 4,  0.42, 2.12, 0, 0,  0.4));
+    g.add(cn(hornM, 0.09, 0.4,  4,  0.0,  2.18, 0, 0,  0.0));
+    g.add(cn(hornM, 0.09, 0.45, 4, -0.72, 1.95, 0, 0, -0.6));
+    g.add(cn(hornM, 0.09, 0.45, 4,  0.72, 1.95, 0, 0,  0.6));
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     // Extra chaos eye (forehead)
     g.add(bx(em(0xff4400), 0.2, 0.2, 0.07, 0, 2.02, 0.52));
     // Wings

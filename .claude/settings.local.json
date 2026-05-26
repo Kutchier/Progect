@@ -22,8 +22,12 @@
       "PowerShell(Get-ChildItem c:\\\\Users\\\\MarusinAS\\\\Desktop\\\\game\\\\ | Where-Object {$_.Name -ne \"node_modules\"} | Select-Object Name)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\MarusinAS\\\\Desktop\\\\game\" -Force)",
       "Bash(Select-Object Name, PSIsContainer)",
+<<<<<<< HEAD
       "Bash(dir \"c:\\\\Users\\\\MarusinAS\\\\Desktop\\\\game\" /b /a)",
       "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\ozheg\\\\OneDrive\\\\Рабочий стол\\\\Progect-main\" -MaxDepth 1 | Where-Object { $_.Name -ne \"node_modules\" } | Select-Object Name, PSIsContainer)"
+=======
+      "Bash(dir \"c:\\\\Users\\\\MarusinAS\\\\Desktop\\\\game\" /b /a)"
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     ]
   }
 }

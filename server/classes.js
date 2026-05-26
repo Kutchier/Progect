@@ -16,9 +16,12 @@ const CLASSES = {
       speed: 8,
       critChance: 0.08
     },
+<<<<<<< HEAD
     ultName: 'Рёв Берсерка',
     ultDescription: 'Атакует ВСЕХ врагов с 300% уроном и гарантированным критом. Оглушает каждого на 1 ход.',
     ultKillsNeeded: 5,
+=======
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     abilities: [
       {
         id: 'shield_bash',
@@ -95,9 +98,12 @@ const CLASSES = {
     name: 'Маг',
     symbol: '✦',
     description: 'Мастер тёмной магии. Низкое HP, но разрушительные заклинания по области.',
+<<<<<<< HEAD
     ultName: 'Армагеддон',
     ultDescription: 'Испепеляет ВСЕХ врагов ударом 400% урона, игнорируя половину их защиты.',
     ultKillsNeeded: 5,
+=======
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     baseStats: {
       hp: 70,
       maxHp: 70,
@@ -185,9 +191,12 @@ const CLASSES = {
     name: 'Плут',
     symbol: '†',
     description: 'Тень в ночи. Высокий шанс крита, уклонение, яды.',
+<<<<<<< HEAD
     ultName: 'Пляска смерти',
     ultDescription: 'Наносит 5 молниеносных ударов случайным врагам — каждый 200% гарантированного крита.',
     ultKillsNeeded: 5,
+=======
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     baseStats: {
       hp: 90,
       maxHp: 90,
@@ -276,9 +285,12 @@ const CLASSES = {
     name: 'Жрец',
     symbol: '✚',
     description: 'Хранитель жизни. Исцеляет союзников, защищает от тьмы.',
+<<<<<<< HEAD
     ultName: 'Небесный суд',
     ultDescription: 'Восстанавливает HP всей группы до максимума, воскрешает павших с 50% HP, и наносит 250% священного урона всем врагам (400% нежити).',
     ultKillsNeeded: 5,
+=======
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     baseStats: {
       hp: 100,
       maxHp: 100,
@@ -386,12 +398,16 @@ function createCharacter(classId, playerName, playerId) {
     isReady: false,
     effects: [],
     hasActed: false,
+<<<<<<< HEAD
     isDefending: false,
     ultKills: 0,
     ultReady: false,
     ultKillsNeeded: cls.ultKillsNeeded || 5,
     ultName: cls.ultName || 'Ульта',
     ultDescription: cls.ultDescription || ''
+=======
+    isDefending: false
+>>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
   };
 }
 
