@@ -387,6 +387,8 @@ function createCharacter(classId, playerName, playerId) {
     effects: [],
     hasActed: false,
     isDefending: false,
+    kills: 0,
+    firstAttackUsed: false,
     ultKills: 0,
     ultReady: false,
     ultKillsNeeded: cls.ultKillsNeeded || 5,

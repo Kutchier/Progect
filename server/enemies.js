@@ -5,7 +5,7 @@ const ENEMY_TYPES = {
   goblin: {
     id: 'goblin', name: 'Гоблин', symbol: '@',
     description: 'Мелкая зеленокожая тварь с ржавым ножом.',
-    tier: 1, baseHp: 30, baseAttack: 8, baseDefense: 2,
+    tier: 1, baseHp: 30, baseAttack: 8, baseDefense: 2, attackRange: 1.5,
     expReward: 15, goldReward: [3, 8], isUndead: false,
     abilities: ['attack'],
     lootTable: [
@@ -18,7 +18,7 @@ const ENEMY_TYPES = {
   skeleton: {
     id: 'skeleton', name: 'Скелет', symbol: 'S',
     description: 'Громыхающие кости, сжимающие пожелтевший меч.',
-    tier: 1, baseHp: 40, baseAttack: 10, baseDefense: 4,
+    tier: 1, baseHp: 40, baseAttack: 10, baseDefense: 4, attackRange: 1.5,
     expReward: 20, goldReward: [5, 12], isUndead: true,
     abilities: ['attack'],
     lootTable: [
@@ -31,7 +31,7 @@ const ENEMY_TYPES = {
   rat_swarm: {
     id: 'rat_swarm', name: 'Крысиная стая', symbol: 'r',
     description: 'Сотни голодных крыс, захлёстывающих жертву волной острых зубов.',
-    tier: 1, baseHp: 25, baseAttack: 6, baseDefense: 1,
+    tier: 1, baseHp: 25, baseAttack: 6, baseDefense: 1, attackRange: 1.5,
     expReward: 12, goldReward: [2, 6], isUndead: false,
     abilities: ['attack', 'poison_bite'],
     lootTable: [
@@ -43,7 +43,7 @@ const ENEMY_TYPES = {
   cave_bat: {
     id: 'cave_bat', name: 'Пещерная летучая мышь', symbol: 'b',
     description: 'Слепая тварь с острыми зубами, атакует рёвом и укусами.',
-    tier: 1, baseHp: 20, baseAttack: 9, baseDefense: 0,
+    tier: 1, baseHp: 20, baseAttack: 9, baseDefense: 0, attackRange: 1.5,
     expReward: 10, goldReward: [2, 5], isUndead: false,
     abilities: ['attack', 'stun_bash'],
     lootTable: [
@@ -55,7 +55,7 @@ const ENEMY_TYPES = {
   kobold: {
     id: 'kobold', name: 'Кобольд', symbol: 'k',
     description: 'Хитрый ящерообразный охотник с самодельными ловушками.',
-    tier: 1, baseHp: 35, baseAttack: 7, baseDefense: 3,
+    tier: 1, baseHp: 35, baseAttack: 7, baseDefense: 3, attackRange: 2.5,
     expReward: 18, goldReward: [4, 10], isUndead: false,
     abilities: ['attack', 'throw_trap'],
     lootTable: [
@@ -69,7 +69,7 @@ const ENEMY_TYPES = {
   zombie: {
     id: 'zombie', name: 'Зомби', symbol: 'Z',
     description: 'Гнилая плоть тащится к жертве, источая миазмы.',
-    tier: 2, baseHp: 65, baseAttack: 12, baseDefense: 3,
+    tier: 2, baseHp: 65, baseAttack: 12, baseDefense: 3, attackRange: 1.5,
     expReward: 30, goldReward: [8, 15], isUndead: true,
     abilities: ['attack', 'poison_bite'],
     lootTable: [
@@ -82,7 +82,7 @@ const ENEMY_TYPES = {
   dark_mage: {
     id: 'dark_mage', name: 'Тёмный маг', symbol: 'M',
     description: 'Безумный колдун в обугленных робах.',
-    tier: 2, baseHp: 50, baseAttack: 18, baseDefense: 2,
+    tier: 2, baseHp: 50, baseAttack: 18, baseDefense: 2, attackRange: 5,
     expReward: 40, goldReward: [10, 20], isUndead: false,
     abilities: ['attack', 'fireball', 'curse'],
     lootTable: [
@@ -96,7 +96,7 @@ const ENEMY_TYPES = {
   werewolf: {
     id: 'werewolf', name: 'Оборотень', symbol: 'W',
     description: 'Человек, проклятый луной. В ярости теряет разум и удваивает силу.',
-    tier: 2, baseHp: 60, baseAttack: 16, baseDefense: 5,
+    tier: 2, baseHp: 60, baseAttack: 16, baseDefense: 5, attackRange: 1.5,
     expReward: 35, goldReward: [8, 18], isUndead: false,
     abilities: ['attack', 'feral_bite', 'howl'],
     lootTable: [
@@ -109,7 +109,7 @@ const ENEMY_TYPES = {
   giant_spider: {
     id: 'giant_spider', name: 'Гигантский паук', symbol: '8',
     description: 'Восьминогий кошмар размером с лошадь, опутывающий жертву паутиной.',
-    tier: 2, baseHp: 45, baseAttack: 13, baseDefense: 3,
+    tier: 2, baseHp: 45, baseAttack: 13, baseDefense: 3, attackRange: 1.5,
     expReward: 28, goldReward: [6, 14], isUndead: false,
     abilities: ['attack', 'poison_bite', 'web_trap'],
     lootTable: [
@@ -122,7 +122,7 @@ const ENEMY_TYPES = {
   shadow: {
     id: 'shadow', name: 'Тень', symbol: '§',
     description: 'Тёмный сгусток магии, почти неуязвимый. Пьёт свет и жизненные силы.',
-    tier: 2, baseHp: 40, baseAttack: 14, baseDefense: 8,
+    tier: 2, baseHp: 40, baseAttack: 14, baseDefense: 8, attackRange: 2.5,
     expReward: 35, goldReward: [5, 12], isUndead: true,
     abilities: ['attack', 'shadow_bind', 'drain'],
     lootTable: [
@@ -135,7 +135,7 @@ const ENEMY_TYPES = {
   troll: {
     id: 'troll', name: 'Тролль', symbol: 'T',
     description: 'Огромная туша с дубиной, медленно, но смертоносно.',
-    tier: 3, baseHp: 100, baseAttack: 22, baseDefense: 8,
+    tier: 3, baseHp: 100, baseAttack: 22, baseDefense: 8, attackRange: 1.5,
     expReward: 60, goldReward: [15, 30], isUndead: false,
     abilities: ['attack', 'heavy_blow', 'regenerate'],
     lootTable: [
@@ -148,7 +148,7 @@ const ENEMY_TYPES = {
   vampire: {
     id: 'vampire', name: 'Вампир', symbol: 'V',
     description: 'Бледный хищник, пьющий кровь своих жертв.',
-    tier: 3, baseHp: 80, baseAttack: 25, baseDefense: 6,
+    tier: 3, baseHp: 80, baseAttack: 25, baseDefense: 6, attackRange: 1.5,
     expReward: 70, goldReward: [20, 40], isUndead: true,
     abilities: ['attack', 'blood_drain', 'charm'],
     lootTable: [
@@ -161,7 +161,7 @@ const ENEMY_TYPES = {
   death_knight: {
     id: 'death_knight', name: 'Рыцарь смерти', symbol: '†',
     description: 'Павший воин, поднятый тёмной силой. Несёт скверну в каждом ударе.',
-    tier: 3, baseHp: 90, baseAttack: 20, baseDefense: 15,
+    tier: 3, baseHp: 90, baseAttack: 20, baseDefense: 15, attackRange: 1.5,
     expReward: 55, goldReward: [15, 28], isUndead: true,
     abilities: ['attack', 'death_bolt', 'heavy_blow'],
     lootTable: [
@@ -174,7 +174,7 @@ const ENEMY_TYPES = {
   golem: {
     id: 'golem', name: 'Каменный голем', symbol: 'G',
     description: 'Оживлённая статуя из горного камня. Почти неуязвим, но медлителен.',
-    tier: 3, baseHp: 130, baseAttack: 18, baseDefense: 20,
+    tier: 3, baseHp: 130, baseAttack: 18, baseDefense: 20, attackRange: 1.5,
     expReward: 65, goldReward: [12, 25], isUndead: false,
     abilities: ['attack', 'heavy_blow'],
     lootTable: [
@@ -187,7 +187,7 @@ const ENEMY_TYPES = {
   harpy: {
     id: 'harpy', name: 'Гарпия', symbol: 'H',
     description: 'Крылатая хищница с птичьими когтями. Пикирует на жертву с высоты.',
-    tier: 3, baseHp: 70, baseAttack: 24, baseDefense: 4,
+    tier: 3, baseHp: 70, baseAttack: 24, baseDefense: 4, attackRange: 3,
     expReward: 58, goldReward: [14, 28], isUndead: false,
     abilities: ['attack', 'wing_buffet', 'screech'],
     lootTable: [
@@ -201,7 +201,7 @@ const ENEMY_TYPES = {
   lich: {
     id: 'lich', name: 'Лич', symbol: 'L',
     description: 'Могущественный некромант, обретший бессмертие ценой души.',
-    tier: 4, baseHp: 120, baseAttack: 30, baseDefense: 10,
+    tier: 4, baseHp: 120, baseAttack: 30, baseDefense: 10, attackRange: 6,
     expReward: 100, goldReward: [30, 60], isUndead: true,
     abilities: ['attack', 'death_bolt', 'raise_dead', 'curse'],
     lootTable: [
@@ -215,7 +215,7 @@ const ENEMY_TYPES = {
   demon: {
     id: 'demon', name: 'Демон', symbol: 'D',
     description: 'Порождение Бездны, горящее чёрным огнём.',
-    tier: 4, baseHp: 150, baseAttack: 35, baseDefense: 12,
+    tier: 4, baseHp: 150, baseAttack: 35, baseDefense: 12, attackRange: 4,
     expReward: 130, goldReward: [40, 80], isUndead: false,
     abilities: ['attack', 'hellfire', 'shadow_bind', 'devour'],
     lootTable: [
@@ -226,9 +226,9 @@ const ENEMY_TYPES = {
   },
 
   witch: {
-    id: 'witch', name: 'Ведьма', symbol: 'W',
+    id: 'witch', name: 'Ведьма', symbol: 'Y',
     description: 'Древняя колдунья с варевом из кошмаров. Её проклятия разъедают плоть.',
-    tier: 4, baseHp: 85, baseAttack: 28, baseDefense: 6,
+    tier: 4, baseHp: 85, baseAttack: 28, baseDefense: 6, attackRange: 5,
     expReward: 85, goldReward: [22, 45], isUndead: false,
     abilities: ['attack', 'curse', 'hellfire', 'raise_dead'],
     lootTable: [
@@ -242,7 +242,7 @@ const ENEMY_TYPES = {
   frost_giant: {
     id: 'frost_giant', name: 'Ледяной великан', symbol: 'F',
     description: 'Исполин из вечных льдов. Одним ударом кулака крушит стены.',
-    tier: 4, baseHp: 160, baseAttack: 30, baseDefense: 18,
+    tier: 4, baseHp: 160, baseAttack: 30, baseDefense: 18, attackRange: 2,
     expReward: 110, goldReward: [30, 65], isUndead: false,
     abilities: ['attack', 'heavy_blow', 'ice_breath'],
     lootTable: [
@@ -255,7 +255,7 @@ const ENEMY_TYPES = {
   nightmare: {
     id: 'nightmare', name: 'Кошмар', symbol: 'N',
     description: 'Демоническое существо из страхов и теней. Сводит с ума одним взглядом.',
-    tier: 4, baseHp: 100, baseAttack: 32, baseDefense: 8,
+    tier: 4, baseHp: 100, baseAttack: 32, baseDefense: 8, attackRange: 4,
     expReward: 120, goldReward: [35, 70], isUndead: false,
     abilities: ['attack', 'hellfire', 'shadow_bind', 'devour'],
     lootTable: [
@@ -269,7 +269,7 @@ const ENEMY_TYPES = {
   dragon_boss: {
     id: 'dragon_boss', name: 'Дракон Тьмы', symbol: 'Ω',
     description: 'БОСС — Древний дракон, несущий смерть и разрушение.',
-    tier: 5, baseHp: 400, baseAttack: 45, baseDefense: 20,
+    tier: 5, baseHp: 400, baseAttack: 45, baseDefense: 20, attackRange: 3,
     expReward: 500, goldReward: [100, 200], isUndead: false, isBoss: true,
     abilities: ['attack', 'dragon_breath', 'tail_sweep', 'wing_buffet', 'devour'],
     lootTable: [
@@ -283,7 +283,7 @@ const ENEMY_TYPES = {
   spider_queen: {
     id: 'spider_queen', name: 'Паучья Королева', symbol: 'Q',
     description: 'БОСС — Гигантский паук, мать тысяч порождений.',
-    tier: 5, baseHp: 300, baseAttack: 35, baseDefense: 15,
+    tier: 5, baseHp: 300, baseAttack: 35, baseDefense: 15, attackRange: 2,
     expReward: 400, goldReward: [80, 150], isUndead: false, isBoss: true,
     abilities: ['attack', 'poison_spray', 'spawn_spiders', 'web_trap'],
     lootTable: [
@@ -296,7 +296,7 @@ const ENEMY_TYPES = {
   chaos_lord: {
     id: 'chaos_lord', name: 'Повелитель Хаоса', symbol: 'Ж',
     description: 'БОСС — Древнее воплощение хаоса. Его появление предвещает конец всего.',
-    tier: 5, baseHp: 500, baseAttack: 50, baseDefense: 22,
+    tier: 5, baseHp: 500, baseAttack: 50, baseDefense: 22, attackRange: 5,
     expReward: 700, goldReward: [120, 280], isUndead: false, isBoss: true,
     abilities: ['attack', 'hellfire', 'death_bolt', 'dragon_breath', 'devour', 'chaos_bolt'],
     lootTable: [
@@ -327,6 +327,7 @@ function createEnemy(typeId, scaleFactor = 1.0) {
     goldReward: type.goldReward,
     isUndead: type.isUndead,
     isBoss: type.isBoss || false,
+    attackRange: type.attackRange || 1.5,
     abilities: [...type.abilities],
     lootTable: type.lootTable,
     ai: type.ai,

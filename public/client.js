@@ -1375,6 +1375,10 @@ function renderPlayerStats(players) {
       if (sid !== S.mySocketId) return;
       const myPlayer = S.gameState?.players?.find(p => p.socketId === S.mySocketId);
       if (!myPlayer?.character?.ultReady) return;
+      if (window.Combat3D?.isActive?.()) {
+        const ch = myPlayer.character;
+        Combat3D.triggerUltimateEffect(ch.classId, ch.gridX, ch.gridZ, getAliveEnemies());
+      }
       socket.emit('player_action', { type: 'ultimate' });
     });
   });

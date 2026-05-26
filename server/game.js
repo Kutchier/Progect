@@ -18,9 +18,10 @@ const GAME_PHASE = {
 };
 
 const DOOR_FORCE_DAMAGE_PCT = 0.15; // % of maxHp all players take when forcing door
+const MAX_INVENTORY = 8;
 
 const VOTE_TIMEOUT = 30000;
-const MAX_FLOORS = 3;
+const MAX_FLOORS = 5;
 
 class GameRoom {
   constructor(roomId, hostId) {
@@ -38,6 +39,8 @@ class GameRoom {
     this.turnPhase = 'player';
     this.io = null;
     this.createdAt = Date.now();
+    this.lootRoundIndex = 0;
+    this.synergies = {};
   }
 
   addPlayer(socketId, playerName) {
@@ -131,6 +134,23 @@ class GameRoom {
       this.addLog(`🌟 Активный бонус: ${bonus.title} — ${bonus.desc}`);
     }
 
+    // Group synergies
+    this.synergies = {};
+    const classIds = players.map(p => p.classId);
+    const uniqueClasses = new Set(classIds);
+    if (classIds.includes('warrior') && classIds.includes('cleric')) {
+      this.synergies.warriorClericShield = true;
+      this.addLog('⚔✚ Синергия: Воин + Жрец — Воин защищён от первого удара каждого боя!');
+    }
+    if (uniqueClasses.size === 4) {
+      this.synergies.fullTeamBonus = true;
+      this.addLog('★ Идеальный состав! +10% к опыту за каждого врага.');
+    }
+    if (classIds.filter(c => c === 'mage').length >= 2) {
+      this.synergies.doubleMage = true;
+      this.addLog('✦✦ Двойной маг! Маги получают +5 MP ежеход дополнительно.');
+    }
+
     const playerCount = players.length;
     this.floor = generateFloor(this.floorNumber, playerCount);
     this.phase = GAME_PHASE.PLAYING;
@@ -179,6 +199,23 @@ class GameRoom {
     this.addLog(room.description);
 
     if (room.type === 'combat' || room.type === 'boss') {
+      // Reset Rogue first-attack passive each combat
+      for (const p of Object.values(this.players)) {
+        if (p.character) p.character.firstAttackUsed = false;
+      }
+      // Warrior+Cleric synergy: Warrior absorbs first hit of each combat
+      if (this.synergies.warriorClericShield) {
+        for (const p of Object.values(this.players)) {
+          if (p.character?.classId === 'warrior' && p.character?.isAlive) {
+            p.character.effects = p.character.effects || [];
+            if (!p.character.effects.some(e => e.type === 'absorbHit')) {
+              p.character.effects.push({ type: 'absorbHit', value: 1, duration: 2 });
+            }
+          }
+        }
+        this.addLog('✚ Аура жреца: Воин поглотит первый удар!');
+      }
+
       const enemyNames = room.enemies.map(e => `${e.symbol} ${e.name} (${e.hp}HP)`).join(', ');
       this.addLog(`Враги: ${enemyNames}`);
       this.addLog(`⚄ Бросок инициативы:`);
@@ -239,20 +276,49 @@ class GameRoom {
     if (!entity) return;
 
     if (entity.isPlayer) {
-      const player = this.players[entity.id]?.character;
+      const conn = this.players[entity.id];
+      const player = conn?.character;
       if (player) { player.hasMoved = false; player.hasActed = false; }
       // Mana regen at start of player turn
       if (player?.isAlive && player.maxMp > 0) {
         player.mp = Math.min(player.maxMp, player.mp + 5);
       }
+      // Double mage synergy: extra 5 MP regen for mages
+      if (player?.isAlive && player.classId === 'mage' && this.synergies?.doubleMage) {
+        player.mp = Math.min(player.maxMp, player.mp + 5);
+      }
+      // Cleric passive aura: heal all alive allies for 3 HP at start of Cleric's turn
+      if (player?.classId === 'cleric' && player?.isAlive) {
+        const allies = Object.values(this.players).filter(p => p.character?.isAlive && p.socketId !== entity.id);
+        if (allies.length > 0) {
+          for (const ally of allies) ally.character.hp = Math.min(ally.character.maxHp, ally.character.hp + 3);
+          this.addLog(`✚ Аура исцеления: союзники восстанавливают 3 HP.`);
+        }
+      }
       // Tick cooldowns
-      const p = this.players[entity.id]?.character;
-      if (p) {
-        for (const ability of (p.abilities || [])) {
+      if (player) {
+        for (const ability of (player.abilities || [])) {
           if (ability.currentCooldown > 0) ability.currentCooldown--;
         }
       }
-      this.addLog(`--- Ход: ${entity.name} ---`);
+
+      if (conn && !conn.isConnected) {
+        // Disconnected player: auto-attack after short delay to avoid sync stack overflow
+        this.addLog(`--- Ход: ${entity.name} (авто) ---`);
+        setTimeout(() => {
+          if (this.phase !== GAME_PHASE.PLAYING) return;
+          const aliveEnemies = room.enemies.filter(e => e.isAlive);
+          if (aliveEnemies.length === 0 || !player.isAlive || player.hasActed) return;
+          const gameState = this.getGameState();
+          const { logs } = processPlayerAction(gameState, entity.id, { type: 'attack', targetId: aliveEnemies[0].id });
+          for (const log of logs) this.addLog(log);
+          this.syncFromGameState(gameState);
+          this._advanceCombatTurn(room);
+          if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
+        }, 500);
+      } else {
+        this.addLog(`--- Ход: ${entity.name} ---`);
+      }
     } else {
       // Enemy turn: auto-resolve immediately
       this._executeEnemyTurnById(room, entity.id);
@@ -370,8 +436,6 @@ class GameRoom {
 
     if (stateChanged) {
       if (isCombat) {
-        // AI players act if it becomes their turn (disconnected)
-        this._handleAIAfterAction(room);
         this._advanceCombatTurn(room);
       } else {
         if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
@@ -379,21 +443,6 @@ class GameRoom {
     } else {
       if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
     }
-  }
-
-  _handleAIAfterAction(room) {
-    // AI players that are disconnected take their action immediately when it's their turn
-    const currentEntity = room.initiativeOrder?.[room.currentTurnIndex];
-    if (!currentEntity?.isPlayer) return;
-    const player = this.players[currentEntity.id];
-    if (!player?.character?.isAlive || player.isConnected) return;
-    if (player.character.hasActed) return;
-
-    const aliveEnemies = room.enemies.filter(e => e.isAlive);
-    if (aliveEnemies.length === 0) return;
-    const gameState = this.getGameState();
-    processPlayerAction(gameState, currentEntity.id, { type: 'attack', targetId: aliveEnemies[0].id });
-    this.syncFromGameState(gameState);
   }
 
   // Legacy stub kept for non-combat use (door challenge cleanup etc.)
@@ -583,12 +632,17 @@ class GameRoom {
           this.addLog(`Попытка провалена. Ещё ${untried.length} игрок(ов) могут попробовать.`);
           dc.minigame = null;
         } else {
-          // Force the door — everyone takes damage
-          this.addLog(`⚡ Дверь выбивают силой! Все получают урон.`);
+          // Force the door — everyone takes damage and gets debuffed
+          this.addLog(`⚡ Дверь выбивают силой! Все получают урон и оглушение.`);
           for (const p of alivePlayers) {
             const dmg = Math.floor(p.character.maxHp * DOOR_FORCE_DAMAGE_PCT);
             p.character.hp = Math.max(1, p.character.hp - dmg);
-            this.addLog(`  ${p.name} получает ${dmg} урона.`);
+            // Apply attack debuff for 2 turns
+            p.character.effects = p.character.effects || [];
+            const existing = p.character.effects.find(e => e.type === 'attackDebuff');
+            if (existing) existing.duration = Math.max(existing.duration, 2);
+            else p.character.effects.push({ type: 'attackDebuff', value: 0.15, duration: 2 });
+            this.addLog(`  ${p.name} получает ${dmg} урона. Атака −15% на 2 хода.`);
           }
           this.doorChallenge = null;
           this.phase = GAME_PHASE.PLAYING;
@@ -676,9 +730,21 @@ class GameRoom {
         for (const p of alivePlayers) p.character.gold += perPlayer;
         this.addLog(`Найдено ${item.amount} золота (по ${perPlayer} каждому).`);
       } else {
-        const recipient = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
-        recipient.character.inventory.push(item);
-        this.addLog(`${recipient.name} получает: ${item.name}`);
+        // Round-robin distribution
+        let distributed = false;
+        for (let attempt = 0; attempt < alivePlayers.length; attempt++) {
+          const recipient = alivePlayers[this.lootRoundIndex % alivePlayers.length];
+          this.lootRoundIndex++;
+          if ((recipient.character.inventory?.length || 0) < MAX_INVENTORY) {
+            recipient.character.inventory.push(item);
+            this.addLog(`${recipient.name} получает: ${item.name}`);
+            distributed = true;
+            break;
+          }
+        }
+        if (!distributed) {
+          this.addLog(`${item.name} никто не смог подобрать — инвентари полны.`);
+        }
       }
     }
   }
@@ -699,6 +765,9 @@ class GameRoom {
 
     if (player.character.gold < item.price) {
       return { ok: false, reason: `Недостаточно золота! Нужно: ${item.price}💰, у вас: ${player.character.gold}💰` };
+    }
+    if ((player.character.inventory?.length || 0) >= MAX_INVENTORY) {
+      return { ok: false, reason: `Инвентарь заполнен! Максимум ${MAX_INVENTORY} предметов.` };
     }
 
     player.character.gold -= item.price;
@@ -788,7 +857,10 @@ class GameRoom {
 
   resetPlayerActions() {
     for (const p of Object.values(this.players)) {
-      if (p.character) p.character.hasActed = false;
+      if (p.character) {
+        p.character.hasActed = false;
+        p.character.hasMoved = false;
+      }
     }
   }
 
@@ -817,7 +889,7 @@ class GameRoom {
     for (const [socketId, p] of Object.entries(this.players)) {
       if (p.character) playerMap[socketId] = p.character;
     }
-    return { players: playerMap, floor: this.floor };
+    return { players: playerMap, floor: this.floor, synergies: this.synergies || {} };
   }
 
   syncFromGameState(gameState) {
@@ -868,6 +940,7 @@ class GameRoom {
           isAI: p.character.isAI,
           gridX: p.character.gridX,
           gridZ: p.character.gridZ,
+          gridY: p.character.gridY ?? 0,
           ultKills: p.character.ultKills || 0,
           ultReady: p.character.ultReady || false,
           ultKillsNeeded: p.character.ultKillsNeeded || 5,
@@ -893,7 +966,8 @@ class GameRoom {
           isBoss: e.isBoss,
           effects: e.effects,
           gridX: e.gridX,
-          gridZ: e.gridZ
+          gridZ: e.gridZ,
+          gridY: e.gridY ?? 0
         })),
         initiativeOrder: room.initiativeOrder || null,
         currentTurnIndex: room.currentTurnIndex ?? null,
@@ -901,7 +975,7 @@ class GameRoom {
           if (!room.initiativeOrder || room.currentTurnIndex === undefined) return null;
           return room.initiativeOrder[room.currentTurnIndex]?.id ?? null;
         })(),
-        combatGrid: room.combatGrid ? { size: room.combatGrid.size, grid: room.combatGrid.grid, theme: room.combatGrid.theme } : null,
+        combatGrid: room.combatGrid ? { size: room.combatGrid.size, grid: room.combatGrid.grid, theme: room.combatGrid.theme, elevations: room.combatGrid.elevations ?? null } : null,
         riddle: room.riddle ? {
           question: room.riddle.question,
           hint: room.riddle.hint,
@@ -913,17 +987,21 @@ class GameRoom {
         loot: room.isCleared ? room.loot : null,
         shopItems: room.shopItems || null
       } : null,
-      mapOverview: this.floor?.rooms.map(r => ({
-        id: r.id,
-        type: r.type,
-        symbol: r.symbol,
-        isVisited: r.isVisited,
-        isCleared: r.isCleared,
-        isCurrent: r.id === this.floor?.currentRoomIndex,
-        mapX: r.mapX || 0,
-        mapY: r.mapY || 0,
-        connections: (r.connections || []).map(c => ({ to: c.to, direction: c.direction }))
-      })),
+      mapOverview: this.floor?.rooms.map(r => {
+        const visited = r.isVisited || r.id === this.floor?.currentRoomIndex;
+        return {
+          id: r.id,
+          type: visited ? r.type : 'unknown',
+          symbol: visited ? r.symbol : '?',
+          name: visited ? r.name : 'Неизвестно',
+          isVisited: r.isVisited,
+          isCleared: r.isCleared,
+          isCurrent: r.id === this.floor?.currentRoomIndex,
+          mapX: r.mapX || 0,
+          mapY: r.mapY || 0,
+          connections: (r.connections || []).map(c => ({ to: c.to, direction: c.direction }))
+        };
+      }),
       vote: this.vote,
       combatLog: this.combatLog.slice(-20),
       turnPhase: this.turnPhase,

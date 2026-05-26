@@ -27,6 +27,9 @@ window.Combat3D = (() => {
   let _abilityAimMode = null;           // { rangeType:'ranged-aoe'|'ranged-single', maxRange, aoeRadius }
   let hoveredCell    = null;
 
+  const deathAnimating = new Set(); // enemy IDs currently playing death animation
+  const permaDead      = new Set(); // enemy IDs whose death animation finished (mesh removed)
+
   // ─── Orbit camera state ────────────────────────────────────────────────────
   let orbitActive = false, orbitLastX = 0, orbitLastY = 0;
   let orbitTheta = 0, orbitPhi = Math.atan2(10, 11);
@@ -35,6 +38,7 @@ window.Combat3D = (() => {
 
   const CELL = 1.0;
   const GRID_SIZE = 14;
+  const LEVEL_HEIGHT = 1.2; // vertical distance between floor levels
 
   // ─── Room themes ───────────────────────────────────────────────────────────
   const T = {
@@ -180,28 +184,49 @@ window.Combat3D = (() => {
     const mWall  = mat(theme.wall,  0x020202);
     const mWTop  = mat(theme.wTop,  0x050403);
     const mObs   = mat(theme.obs,   0x080604);
+    const mStairs = mat(0x4a3a28, 0x201810); // distinct brownish material for stairs
 
     for (let x = 0; x < size; x++) {
       for (let z = 0; z < size; z++) {
         const cell = combatGrid.grid[x][z];
         const wx = x * CELL - size * CELL / 2 + CELL / 2;
         const wz = z * CELL - size * CELL / 2 + CELL / 2;
+        const elev = combatGrid.elevations ? combatGrid.elevations[x][z] : 0;
+        const wy = elev * LEVEL_HEIGHT;
 
         if (cell === 'wall') {
-          const wm = box(CELL, 1.4, CELL, mWall, wx, 0.7, wz);
+          const wallH = 1.4;
+          const wm = box(CELL, wallH + wy, CELL, mWall, wx, (wallH + wy) / 2, wz);
           wm.userData.isWall = true;
           gridGroup.add(wm);
-          gridGroup.add(box(CELL*0.96, 0.1, CELL*0.96, mWTop, wx, 1.45, wz));
+          gridGroup.add(box(CELL * 0.96, 0.1, CELL * 0.96, mWTop, wx, wallH + wy, wz));
         } else if (cell === 'obstacle') {
-          gridGroup.add(box(CELL*0.94, 0.1, CELL*0.94, mFloor, wx, 0.05, wz));
-          buildObstacle(gridGroup, combatGrid.theme, wx, wz, mObs, mWTop);
+          // Floor base for obstacle (includes platform support if elevated)
+          if (wy > 0) gridGroup.add(box(CELL * 0.94, wy, CELL * 0.94, mWall, wx, wy / 2, wz));
+          gridGroup.add(box(CELL * 0.94, 0.1, CELL * 0.94, mFloor, wx, wy + 0.05, wz));
+          buildObstacle(gridGroup, combatGrid.theme, wx, wz, mObs, mWTop, wy);
+        } else if (cell === 'stairs') {
+          // Stairs tile: rendered as a raised ramp with 3 step indicators
+          if (wy > 0) gridGroup.add(box(CELL * 0.94, wy, CELL * 0.94, mWall, wx, wy / 2, wz));
+          gridGroup.add(box(CELL * 0.94, 0.1, CELL * 0.94, mStairs, wx, wy + 0.05, wz));
+          // Step ridges to visually signal staircase
+          for (let s = 0; s < 3; s++) {
+            const oz = (s - 1) * 0.26;
+            const sh = 0.04 + s * 0.05;
+            gridGroup.add(box(CELL * 0.88, sh, 0.1, mWTop, wx, wy + 0.05 + sh / 2, wz + oz));
+          }
+          const stairTile = box(CELL * 0.97, 0.02, CELL * 0.97, matB(0x886644, 0.35), wx, wy + 0.17, wz);
+          stairTile.userData = { cellX: x, cellZ: z, isFloor: true };
+          gridGroup.add(stairTile);
         } else {
-          const tile = box(CELL*0.94, 0.1, CELL*0.94, mFloor, wx, 0.05, wz);
-          tile.userData = { cellX:x, cellZ:z, isFloor:true };
+          // Normal floor — add vertical support pillar if elevated
+          if (wy > 0) gridGroup.add(box(CELL * 0.94, wy, CELL * 0.94, mWall, wx, wy / 2, wz));
+          const tile = box(CELL * 0.94, 0.1, CELL * 0.94, mFloor, wx, wy + 0.05, wz);
+          tile.userData = { cellX: x, cellZ: z, isFloor: true };
           tile.receiveShadow = true;
           gridGroup.add(tile);
-          const edge = box(CELL*0.97, 0.02, CELL*0.97, matB(theme.obs, 0.25), wx, 0.07, wz);
-          edge.userData = { cellX:x, cellZ:z, isEdge:true };
+          const edge = box(CELL * 0.97, 0.02, CELL * 0.97, matB(theme.obs, 0.25), wx, wy + 0.07, wz);
+          edge.userData = { cellX: x, cellZ: z, isEdge: true };
           gridGroup.add(edge);
         }
       }
@@ -214,53 +239,48 @@ window.Combat3D = (() => {
     buildProps(size, combatGrid.theme, theme);
   }
 
-  function buildObstacle(group, themeName, wx, wz, mObs, mWTop) {
-    // Per-theme obstacle appearance
+  function buildObstacle(group, themeName, wx, wz, mObs, mWTop, baseY = 0) {
+    // Wrap obstacle meshes in a group offset by baseY so elevated platforms work correctly
+    const g = new THREE.Group();
+    g.position.y = baseY;
     switch(themeName) {
       case 'forest': {
-        // Tree stump
-        group.add(cyl(0.22, 0.28, 0.6, 12, mat(0x3a2810), wx, 0.35, wz));
-        group.add(cyl(0.28, 0.28, 0.08, 12, mat(0x4a3418), wx, 0.68, wz));
+        g.add(cyl(0.22, 0.28, 0.6, 12, mat(0x3a2810), wx, 0.35, wz));
+        g.add(cyl(0.28, 0.28, 0.08, 12, mat(0x4a3418), wx, 0.68, wz));
         break;
       }
       case 'ice': {
-        // Ice spike cluster
-        group.add(cone(0.15, 0.8, 8, mat(0x88aacc,0x224466), wx, 0.5, wz));
-        group.add(cone(0.1, 0.55, 8, mat(0x8899bb,0x1a3355), wx+0.18, 0.38, wz-0.15));
+        g.add(cone(0.15, 0.8, 8, mat(0x88aacc,0x224466), wx, 0.5, wz));
+        g.add(cone(0.1, 0.55, 8, mat(0x8899bb,0x1a3355), wx+0.18, 0.38, wz-0.15));
         break;
       }
       case 'lava': {
-        // Lava rock
-        group.add(sph(0.28, 12, mat(0x2a1408,0x600800), wx, 0.32, wz));
-        // Glowing crack on top
-        group.add(box(0.08, 0.04, 0.28, mat(0xff4400,0xcc2200), wx, 0.56, wz));
+        g.add(sph(0.28, 12, mat(0x2a1408,0x600800), wx, 0.32, wz));
+        g.add(box(0.08, 0.04, 0.28, mat(0xff4400,0xcc2200), wx, 0.56, wz));
         break;
       }
       case 'crypt': {
-        // Stone coffin fragment / sarcophagus lid
-        group.add(box(0.5, 0.28, 0.7, mat(0x181420,0x080408), wx, 0.2, wz));
-        group.add(box(0.42, 0.08, 0.6, mat(0x22202a,0x080408), wx, 0.38, wz));
+        g.add(box(0.5, 0.28, 0.7, mat(0x181420,0x080408), wx, 0.2, wz));
+        g.add(box(0.42, 0.08, 0.6, mat(0x22202a,0x080408), wx, 0.38, wz));
         break;
       }
       case 'library': {
-        // Stack of books
-        group.add(box(0.48, 0.16, 0.38, mat(0x3a1a08), wx, 0.13, wz));
-        group.add(box(0.38, 0.14, 0.32, mat(0x1a2a10), wx+0.02, 0.26, wz-0.02));
-        group.add(box(0.3, 0.12, 0.28, mat(0x1a1040), wx-0.03, 0.38, wz+0.02));
+        g.add(box(0.48, 0.16, 0.38, mat(0x3a1a08), wx, 0.13, wz));
+        g.add(box(0.38, 0.14, 0.32, mat(0x1a2a10), wx+0.02, 0.26, wz-0.02));
+        g.add(box(0.3, 0.12, 0.28, mat(0x1a1040), wx-0.03, 0.38, wz+0.02));
         break;
       }
       case 'workshop': {
-        // Anvil shape
-        group.add(box(0.42, 0.14, 0.28, mat(0x383838,0x101010), wx, 0.32, wz));
-        group.add(box(0.3, 0.22, 0.22, mat(0x282828,0x101010), wx, 0.18, wz));
+        g.add(box(0.42, 0.14, 0.28, mat(0x383838,0x101010), wx, 0.32, wz));
+        g.add(box(0.3, 0.22, 0.22, mat(0x282828,0x101010), wx, 0.18, wz));
         break;
       }
       default: {
-        // Stone pillar
-        group.add(cyl(0.22, 0.26, 0.9, 10, mObs, wx, 0.5, wz));
-        group.add(box(0.52, 0.1, 0.52, mWTop, wx, 0.96, wz));
+        g.add(cyl(0.22, 0.26, 0.9, 10, mObs, wx, 0.5, wz));
+        g.add(box(0.52, 0.1, 0.52, mWTop, wx, 0.96, wz));
       }
     }
+    group.add(g);
   }
 
   function buildBorderWalls(size, theme) {
@@ -647,16 +667,18 @@ window.Combat3D = (() => {
     highlightGroup.clear();
     if (!_combatGrid) return;
     const size = _combatGrid.size;
+    const getCellElev = (x, z) => (_combatGrid.elevations ? _combatGrid.elevations[x][z] : 0) * LEVEL_HEIGHT;
 
     // Move range cells (blue)
     for (const key of reachableCells) {
       const [x, z] = key.split(',').map(Number);
       const wx = x * CELL - size * CELL / 2 + CELL / 2;
       const wz = z * CELL - size * CELL / 2 + CELL / 2;
-      const h = box(CELL*0.88, 0.09, CELL*0.88, matB(C.moveBlue, 0.42), wx, 0.17, wz);
+      const hy = getCellElev(x, z);
+      const h = box(CELL*0.88, 0.09, CELL*0.88, matB(C.moveBlue, 0.42), wx, hy + 0.17, wz);
       h.userData = { cellX:x, cellZ:z, isHighlight:true };
       highlightGroup.add(h);
-      const b = box(CELL*0.91, 0.04, CELL*0.91, matB(C.moveEdge, 0.65), wx, 0.18, wz);
+      const b = box(CELL*0.91, 0.04, CELL*0.91, matB(C.moveEdge, 0.65), wx, hy + 0.18, wz);
       b.userData = { cellX:x, cellZ:z, isHighlight:true };
       highlightGroup.add(b);
     }
@@ -666,10 +688,11 @@ window.Combat3D = (() => {
       const [x, z] = key.split(',').map(Number);
       const wx = x * CELL - size * CELL / 2 + CELL / 2;
       const wz = z * CELL - size * CELL / 2 + CELL / 2;
-      const h = box(CELL*0.88, 0.10, CELL*0.88, matB(C.abilRange, 0.32), wx, 0.19, wz);
+      const hy = getCellElev(x, z);
+      const h = box(CELL*0.88, 0.10, CELL*0.88, matB(C.abilRange, 0.32), wx, hy + 0.19, wz);
       h.userData = { cellX:x, cellZ:z, isAbilityRange:true };
       highlightGroup.add(h);
-      const b = box(CELL*0.92, 0.04, CELL*0.92, matB(C.abilRangeEdge, 0.55), wx, 0.20, wz);
+      const b = box(CELL*0.92, 0.04, CELL*0.92, matB(C.abilRangeEdge, 0.55), wx, hy + 0.20, wz);
       b.userData = { cellX:x, cellZ:z, isAbilityRange:true };
       highlightGroup.add(b);
     }
@@ -914,7 +937,7 @@ window.Combat3D = (() => {
 
   // ─── Animation system ──────────────────────────────────────────────────────
   function triggerAnim(id, type) {
-    anims[id] = { type, t:0, dur: type==='hurt'?0.35 : type==='attack'?0.5 : 0.4 };
+    anims[id] = { type, t:0, dur: type==='hurt'?0.35 : type==='attack'?0.5 : type==='death'?0.75 : 0.4 };
   }
 
   function tickAnims(dt) {
@@ -924,6 +947,27 @@ window.Combat3D = (() => {
       if (!grp) { delete anims[id]; continue; }
       const prog = Math.min(1, anim.t / anim.dur);
       const bodyGrp = grp.children.find(c => c.userData.isBodyGroup) || grp;
+
+      if (anim.type === 'death') {
+        bodyGrp.rotation.x = prog * (Math.PI / 2);
+        grp.position.y = (grp.userData.baseY ?? 0) - prog * 0.28;
+        grp.traverse(m => {
+          if (m.isMesh && !m.isSprite && !m.userData.isTurnIndicator) {
+            m.material.transparent = true;
+            m.material.opacity = Math.max(0, 1 - prog * 1.5);
+          }
+        });
+        if (prog >= 1) {
+          entityGroup.remove(grp);
+          delete entityMeshes[id];
+          delete entityLabels[id];
+          delete entityHpCache[id];
+          deathAnimating.delete(id);
+          permaDead.add(id);
+          delete anims[id];
+        }
+        continue;
+      }
 
       if (prog >= 1) {
         bodyGrp.rotation.set(0,0,0);
@@ -994,6 +1038,7 @@ window.Combat3D = (() => {
       const id = p.socketId;
       alive.add(id);
       const { wx, wz } = gridToWorld(ch.gridX, ch.gridZ);
+      const entityBaseY = (ch.gridY ?? 0) * LEVEL_HEIGHT;
 
       // Detect HP change for hurt animation
       if (entityHpCache[id] !== undefined && ch.hp < entityHpCache[id] && ch.isAlive) {
@@ -1003,9 +1048,9 @@ window.Combat3D = (() => {
 
       if (!entityMeshes[id]) {
         const model = buildPlayerModel(ch.classId);
-        model.position.set(wx, 0, wz);
+        model.position.set(wx, entityBaseY, wz);
         model.userData = { entityId:id, isPlayer:true };
-        model.userData.baseY = 0;
+        model.userData.baseY = entityBaseY;
         entityGroup.add(model);
         entityMeshes[id] = model;
 
@@ -1014,7 +1059,8 @@ window.Combat3D = (() => {
         const lbl = createLabel(id, p.name||'Player', ch.hp, ch.maxHp, false, ch.isAlive, headY);
         model.add(lbl);
       } else {
-        entityMeshes[id].userData.targetPos = new THREE.Vector3(wx, entityMeshes[id].userData.baseY??0, wz);
+        entityMeshes[id].userData.baseY = entityBaseY;
+        entityMeshes[id].userData.targetPos = new THREE.Vector3(wx, entityBaseY, wz);
         updateLabel(id, p.name||'Player', ch.hp, ch.maxHp, false, ch.isAlive);
       }
 
@@ -1030,8 +1076,21 @@ window.Combat3D = (() => {
     for (const e of _enemies) {
       if (e.gridX === undefined) continue;
       const id = e.id;
+
+      // Skip enemies whose death animation already completed
+      if (permaDead.has(id)) continue;
+
+      // Keep animating death — don't update mesh, just hold in alive set
+      if (deathAnimating.has(id)) { alive.add(id); continue; }
+
+      // Enemy was dead before we ever saw them — hide immediately
+      if (!e.isAlive && entityHpCache[id] === undefined) {
+        permaDead.add(id); continue;
+      }
+
       alive.add(id);
       const { wx, wz } = gridToWorld(e.gridX, e.gridZ);
+      const entityBaseY = (e.gridY ?? 0) * LEVEL_HEIGHT;
 
       if (entityHpCache[id] !== undefined && e.hp < entityHpCache[id] && e.isAlive) {
         triggerAnim(id, 'hurt');
@@ -1040,9 +1099,9 @@ window.Combat3D = (() => {
 
       if (!entityMeshes[id]) {
         const model = buildEnemyModel(e.typeId, e.isBoss);
-        model.position.set(wx, 0, wz);
+        model.position.set(wx, entityBaseY, wz);
         model.userData = { entityId:id, isEnemy:true, typeId:e.typeId };
-        model.userData.baseY = 0;
+        model.userData.baseY = entityBaseY;
         entityGroup.add(model);
         entityMeshes[id] = model;
 
@@ -1050,14 +1109,22 @@ window.Combat3D = (() => {
         const lbl = createLabel(id, e.name||e.typeId, e.hp, e.maxHp, true, e.isAlive, headY);
         model.add(lbl);
       } else {
-        entityMeshes[id].userData.targetPos = new THREE.Vector3(wx, entityMeshes[id].userData.baseY??0, wz);
+        entityMeshes[id].userData.baseY = entityBaseY;
+        entityMeshes[id].userData.targetPos = new THREE.Vector3(wx, entityBaseY, wz);
         updateLabel(id, e.name||e.typeId, e.hp, e.maxHp, true, e.isAlive);
+      }
+
+      // Trigger death animation on first dead state detection
+      if (!e.isAlive && entityMeshes[id]) {
+        triggerAnim(id, 'death');
+        deathAnimating.add(id);
+        continue;
       }
 
       entityMeshes[id].traverse(m => {
         if (m.isMesh && !m.userData.isTurnIndicator && !m.userData.isIndicator && !m.isSprite) {
-          m.material.opacity = e.isAlive ? 1 : 0.22;
-          m.material.transparent = !e.isAlive;
+          m.material.opacity = 1;
+          m.material.transparent = false;
         }
       });
     }
@@ -1140,6 +1207,8 @@ window.Combat3D = (() => {
     const reach = new Set(), vis = new Map(), q = [[fx,fz,0]];
     const DIRS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
     const sz = _combatGrid.size;
+    const elev = _combatGrid.elevations;
+    const isWalkableCell = c => c === 'floor' || c === 'stairs';
     while (q.length) {
       const [x,z,d] = q.shift();
       const k = `${x},${z}`;
@@ -1147,13 +1216,25 @@ window.Combat3D = (() => {
       vis.set(k,d);
       if (d>0) reach.add(k);
       if (d>=range) continue;
+      const curLevel = elev ? elev[x][z] : 0;
       for (const [dx,dz] of DIRS) {
         const nx=x+dx, nz=z+dz;
         if (nx<0||nz<0||nx>=sz||nz>=sz) continue;
-        if (_combatGrid.grid[nx][nz]!=='floor') continue;
+        if (!isWalkableCell(_combatGrid.grid[nx][nz])) continue;
         const occ = _players.some(p=>{ const c=p.character; return c&&c.gridX===nx&&c.gridZ===nz; }) ||
                     _enemies.some(e=>e.isAlive&&e.gridX===nx&&e.gridZ===nz);
         if (occ) continue;
+        if (elev) {
+          const destLevel = elev[nx][nz];
+          const diff = Math.abs(destLevel - curLevel);
+          if (diff === 1) {
+            const curStairs = _combatGrid.grid[x][z] === 'stairs';
+            const dstStairs = _combatGrid.grid[nx][nz] === 'stairs';
+            if (!curStairs && !dstStairs) continue;
+          } else if (diff > 1) {
+            continue;
+          }
+        }
         const nk=`${nx},${nz}`, nd=d+1;
         if (!vis.has(nk)||vis.get(nk)>nd) q.push([nx,nz,nd]);
       }
@@ -1506,6 +1587,296 @@ window.Combat3D = (() => {
     });
   }
 
+  // ─── Ultimate Visual Effects ──────────────────────────────────────────────
+
+  function _fxWarriorUlt(playerPos, enemyPositions) {
+    const DUR = 1.0;
+    const allObjs = [];
+
+    // Golden vortex ring from player
+    const vortexMat = new THREE.MeshBasicMaterial({ color: 0xffdd00, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+    const vortex = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.1, 8, 24), vortexMat);
+    vortex.rotation.x = Math.PI / 2;
+    vortex.position.set(playerPos.x, 0.35, playerPos.z);
+    allObjs.push(vortex);
+
+    // Three expanding shockwave rings
+    const shocks = [];
+    for (let i = 0; i < 3; i++) {
+      const sm = new THREE.MeshBasicMaterial({ color: i === 0 ? 0xffcc00 : 0xff8800, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
+      const sr = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.06, 6, 20), sm);
+      sr.rotation.x = Math.PI / 2;
+      sr.position.set(playerPos.x, 0.2, playerPos.z);
+      sr.userData.delay = i * 0.18;
+      shocks.push(sr);
+      allObjs.push(sr);
+    }
+
+    // Sword slash projectiles flying to each enemy
+    const slashes = [];
+    for (const ep of enemyPositions) {
+      const slashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+      const slash = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.36, 0.04), slashMat);
+      slash.position.copy(playerPos); slash.position.y = 0.5;
+      const dir = new THREE.Vector3().subVectors(ep, playerPos).normalize();
+      slash.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      slash.userData = { from: playerPos.clone(), to: ep.clone(), delay: 0.12 + Math.random() * 0.08 };
+      slashes.push(slash); allObjs.push(slash);
+    }
+
+    // Golden impact sparks at each enemy
+    const sparks = [];
+    for (const ep of enemyPositions) {
+      for (let j = 0; j < 5; j++) {
+        const a = (j / 5) * Math.PI * 2;
+        const sp = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.1, 0.04),
+          new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0 }));
+        sp.position.set(ep.x, 0.4, ep.z);
+        sp.userData = { vx: Math.cos(a) * 1.8, vy: 2.5 + Math.random(), vz: Math.sin(a) * 1.8, delay: 0.32 };
+        sparks.push(sp); allObjs.push(sp);
+      }
+    }
+
+    _spawnFx(allObjs, function(t, dt) {
+      const p = Math.min(1, t / DUR);
+      vortex.scale.setScalar(1 + p * 9);
+      vortexMat.opacity = (1 - p) * 0.9;
+      vortex.rotation.z += dt * 8;
+      for (const sr of shocks) {
+        const lt = Math.max(0, t - sr.userData.delay);
+        const lp = Math.min(1, lt / 0.58);
+        sr.scale.setScalar(1 + lp * 11);
+        sr.material.opacity = (1 - lp) * 0.7;
+      }
+      for (const sl of slashes) {
+        const lt = Math.max(0, t - sl.userData.delay);
+        const lp = Math.min(1, lt / 0.28);
+        sl.position.lerpVectors(sl.userData.from, sl.userData.to, lp);
+        sl.position.y = 0.5;
+        sl.material.opacity = lp < 1 ? 0.9 : Math.max(0, 1 - (lt - 0.28) / 0.15);
+      }
+      for (const sp of sparks) {
+        const lt = Math.max(0, t - sp.userData.delay);
+        if (lt <= 0) { sp.material.opacity = 0; continue; }
+        const lp = Math.min(1, lt / 0.38);
+        sp.userData.vy -= 7 * dt;
+        sp.position.x += sp.userData.vx * dt;
+        sp.position.y += sp.userData.vy * dt;
+        sp.position.z += sp.userData.vz * dt;
+        sp.rotation.x += dt * 6;
+        sp.material.opacity = (1 - lp) * 0.85;
+      }
+      if (p >= 1) this.done = true;
+    });
+  }
+
+  function _fxMageUlt(playerPos, enemyPositions) {
+    const DUR = 1.3;
+    const allObjs = [];
+    const meteors = [];
+
+    // Sky-flash at player position first
+    const skyMat = new THREE.MeshBasicMaterial({ color: 0xff2200, transparent: true, opacity: 0, side: THREE.DoubleSide });
+    const skyFlash = new THREE.Mesh(new THREE.CircleGeometry(0.5, 20), skyMat);
+    skyFlash.rotation.x = -Math.PI / 2;
+    skyFlash.position.set(playerPos.x, 0.12, playerPos.z);
+    allObjs.push(skyFlash);
+
+    for (let i = 0; i < enemyPositions.length; i++) {
+      const ep = enemyPositions[i];
+      const delay = i * 0.2;
+
+      const mMat = new THREE.MeshBasicMaterial({ color: 0xff3300 });
+      const meteor = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), mMat);
+      const start = new THREE.Vector3(ep.x + (Math.random() - 0.5) * 1.2, 5.5, ep.z + (Math.random() - 0.5) * 1.2);
+      meteor.position.copy(start);
+      const haloMat = new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.55 });
+      meteor.add(new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 10), haloMat));
+
+      const expMat = new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0, side: THREE.DoubleSide });
+      const expRing = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.07, 6, 20), expMat);
+      expRing.rotation.x = Math.PI / 2;
+      expRing.position.set(ep.x, 0.18, ep.z);
+
+      const debris = [];
+      for (let j = 0; j < 6; j++) {
+        const a = (j / 6) * Math.PI * 2;
+        const db = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6),
+          new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0 }));
+        db.position.set(ep.x, 0.4, ep.z);
+        db.userData = { vx: Math.cos(a) * 2.0, vy: 2.8 + Math.random(), vz: Math.sin(a) * 2.0 };
+        debris.push(db); allObjs.push(db);
+      }
+
+      allObjs.push(meteor, expRing);
+      meteors.push({ meteor, expRing, expMat, start, end: ep.clone(), delay, debris, exploded: false, explodeT: 0 });
+    }
+
+    _spawnFx(allObjs, function(t, dt) {
+      skyMat.opacity = t < 0.2 ? (t / 0.2) * 0.45 : Math.max(0, 0.45 - (t - 0.2) / 0.4 * 0.45);
+      skyFlash.scale.setScalar(1 + Math.min(t / 0.6, 1) * 6);
+      for (const m of meteors) {
+        const lt = Math.max(0, t - m.delay);
+        if (lt <= 0) continue;
+        if (!m.exploded) {
+          const fp = Math.min(1, lt / 0.38);
+          m.meteor.position.lerpVectors(m.start, m.end, fp);
+          m.meteor.rotation.z += dt * 5;
+          if (fp >= 1) {
+            m.exploded = true; m.explodeT = lt;
+            m.meteor.visible = false; m.expMat.opacity = 0.95;
+            m.debris.forEach(d => { d.material.opacity = 0.9; });
+          }
+        } else {
+          const xp = Math.min(1, (lt - m.explodeT) / 0.5);
+          m.expRing.scale.setScalar(1 + xp * 8);
+          m.expMat.opacity = (1 - xp) * 0.9;
+          for (const db of m.debris) {
+            db.userData.vy -= 6 * dt;
+            db.position.x += db.userData.vx * dt;
+            db.position.y += db.userData.vy * dt;
+            db.position.z += db.userData.vz * dt;
+            db.material.opacity = Math.max(0, (1 - xp) * 0.85);
+          }
+        }
+      }
+      if (t >= DUR) this.done = true;
+    });
+  }
+
+  function _fxRogueUlt(playerPos, enemyPositions) {
+    const DUR = 0.95;
+    const allObjs = [];
+    const blades = [];
+
+    for (let hit = 0; hit < 5; hit++) {
+      const ep = enemyPositions.length ? enemyPositions[hit % enemyPositions.length] : playerPos;
+      const delay = hit * 0.12;
+      const jitter = new THREE.Vector3((Math.random() - 0.5) * 0.3, 0, (Math.random() - 0.5) * 0.3);
+      const from = playerPos.clone(); from.y = 0.55;
+      const to = ep.clone().add(jitter); to.y = 0.55;
+
+      const bMat = new THREE.MeshBasicMaterial({ color: 0x220033, transparent: true, opacity: 0 });
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.32, 0.05), bMat);
+      blade.position.copy(from);
+      const dir = new THREE.Vector3().subVectors(to, from).normalize();
+      if (dir.length() > 0.01) blade.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      blade.userData = { from, to, delay };
+
+      // Smoke trail segments
+      const trail = [];
+      for (let s = 0; s < 4; s++) {
+        const tm = new THREE.Mesh(new THREE.SphereGeometry(0.065, 6, 6),
+          new THREE.MeshBasicMaterial({ color: 0x550088, transparent: true, opacity: 0 }));
+        tm.userData.idx = s;
+        trail.push(tm); allObjs.push(tm);
+      }
+
+      const impMat = new THREE.MeshBasicMaterial({ color: 0xbb00ff, transparent: true, opacity: 0, side: THREE.DoubleSide });
+      const impRing = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.05, 6, 14), impMat);
+      impRing.rotation.x = Math.PI / 2;
+      impRing.position.set(to.x, 0.4, to.z);
+
+      blades.push({ blade, bMat, trail, impRing, impMat, from, to, delay, arrived: false, arriveT: 0 });
+      allObjs.push(blade, impRing);
+    }
+
+    _spawnFx(allObjs, function(t, dt) {
+      for (const b of blades) {
+        const lt = Math.max(0, t - b.delay);
+        if (lt <= 0) continue;
+        if (!b.arrived) {
+          const fp = Math.min(1, lt / 0.2);
+          b.blade.position.lerpVectors(b.from, b.to, fp);
+          b.blade.position.y = 0.55;
+          b.bMat.opacity = fp < 1 ? 0.85 : 0;
+          for (const ts of b.trail) {
+            const tFrac = Math.max(0, fp - (ts.userData.idx + 1) * 0.06);
+            ts.position.lerpVectors(b.from, b.to, tFrac);
+            ts.position.y = 0.55;
+            ts.material.opacity = tFrac > 0 && fp < 1 ? 0.32 : 0;
+          }
+          if (fp >= 1) {
+            b.arrived = true; b.arriveT = lt;
+            b.impMat.opacity = 0.9;
+          }
+        } else {
+          const xp = Math.min(1, (lt - b.arriveT) / 0.28);
+          b.impRing.scale.setScalar(1 + xp * 4);
+          b.impMat.opacity = (1 - xp) * 0.85;
+        }
+      }
+      if (t >= DUR) this.done = true;
+    });
+  }
+
+  function _fxClericUlt(playerPos, enemyPositions) {
+    const DUR = 1.25;
+    const allObjs = [];
+
+    // Central holy beam from above
+    const beamMat = new THREE.MeshBasicMaterial({ color: 0xfffacc, transparent: true, opacity: 0, side: THREE.DoubleSide });
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.14, 5.5, 16), beamMat);
+    beam.position.set(playerPos.x, 2.95, playerPos.z);
+    allObjs.push(beam);
+
+    // Ground glow circle
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0xffffaa, transparent: true, opacity: 0, side: THREE.DoubleSide });
+    const glow = new THREE.Mesh(new THREE.CircleGeometry(0.28, 20), glowMat);
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.set(playerPos.x, 0.12, playerPos.z);
+    allObjs.push(glow);
+
+    // Three expanding holy rings
+    const holyRings = [];
+    for (let i = 0; i < 3; i++) {
+      const rm = new THREE.MeshBasicMaterial({ color: 0xffee88, transparent: true, opacity: 0, side: THREE.DoubleSide });
+      const r = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.05, 6, 20), rm);
+      r.rotation.x = Math.PI / 2;
+      r.position.set(playerPos.x, 0.2, playerPos.z);
+      r.userData.delay = i * 0.22;
+      holyRings.push(r); allObjs.push(r);
+    }
+
+    // Divine smite beams on each enemy
+    const smites = [];
+    for (const ep of enemyPositions) {
+      const smiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide });
+      const smiteBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.13, 4.5, 12), smiteMat);
+      smiteBeam.position.set(ep.x, 2.55, ep.z);
+      const flashMat = new THREE.MeshBasicMaterial({ color: 0xffffcc, transparent: true, opacity: 0, side: THREE.DoubleSide });
+      const flash = new THREE.Mesh(new THREE.CircleGeometry(0.06, 16), flashMat);
+      flash.rotation.x = -Math.PI / 2;
+      flash.position.set(ep.x, 0.15, ep.z);
+      smites.push({ smiteBeam, smiteMat, flash, flashMat, delay: 0.28 + Math.random() * 0.22 });
+      allObjs.push(smiteBeam, flash);
+    }
+
+    _spawnFx(allObjs, function(t, dt) {
+      const p = Math.min(1, t / DUR);
+      const beamP = p < 0.25 ? p / 0.25 : p < 0.72 ? 1 : 1 - (p - 0.72) / 0.28;
+      beamMat.opacity = beamP * 0.72;
+      beam.scale.y = 1 + Math.sin(p * Math.PI) * 0.35;
+      glowMat.opacity = beamP * 0.62;
+      glow.scale.setScalar(1 + p * 5.5);
+      for (const r of holyRings) {
+        const lt = Math.max(0, t - r.userData.delay);
+        const lp = Math.min(1, lt / 0.62);
+        r.scale.setScalar(1 + lp * 10);
+        r.material.opacity = (1 - lp) * 0.72;
+      }
+      for (const s of smites) {
+        const lt = Math.max(0, t - s.delay);
+        if (lt <= 0) continue;
+        const sp = Math.min(1, lt / 0.48);
+        s.smiteMat.opacity = sp < 0.3 ? (sp / 0.3) * 0.85 : (1 - (sp - 0.3) / 0.7) * 0.85;
+        s.flash.scale.setScalar(1 + sp * 6);
+        s.flashMat.opacity = (1 - sp) * 0.9;
+      }
+      if (p >= 1) this.done = true;
+    });
+  }
+
   function triggerAbilityEffect(abilityId, fromGX, fromGZ, toGX, toGZ) {
     if (!effectGroup || !_combatGrid) return;
     const from = _fxPos(fromGX, fromGZ, 0.6);
@@ -1517,6 +1888,20 @@ window.Combat3D = (() => {
       case 'smoke_bomb':      _fxSmokeBomb(from, to);      break;
       case 'holy_smite':      _fxHolySmite(from, to);      break;
       case 'curse':           _fxCurse(from, to);          break;
+    }
+  }
+
+  function triggerUltimateEffect(classId, fromGX, fromGZ, enemies) {
+    if (!effectGroup || !_combatGrid) return;
+    const from = _fxPos(fromGX, fromGZ, 0.55);
+    const enemyPositions = (enemies || [])
+      .filter(e => e.gridX !== undefined)
+      .map(e => _fxPos(e.gridX, e.gridZ, 0.45));
+    switch (classId) {
+      case 'warrior': _fxWarriorUlt(from, enemyPositions); break;
+      case 'mage':    _fxMageUlt(from, enemyPositions);    break;
+      case 'rogue':   _fxRogueUlt(from, enemyPositions);   break;
+      case 'cleric':  _fxClericUlt(from, enemyPositions);  break;
     }
   }
 
@@ -1662,6 +2047,8 @@ window.Combat3D = (() => {
     if (effectGroup) effectGroup.clear();
     effectGroup = null;
     abilityEffects.length = 0;
+    deathAnimating.clear();
+    permaDead.clear();
     Object.keys(entityMeshes).forEach(k=>delete entityMeshes[k]);
     Object.keys(entityLabels).forEach(k=>delete entityLabels[k]);
     Object.keys(entityHpCache).forEach(k=>delete entityHpCache[k]);
@@ -1690,5 +2077,5 @@ window.Combat3D = (() => {
 
   function isActive() { return !!renderer; }
 
-  return { mount, unmount, updateState, isActive, setAbilityAimMode, clearAbilityAimMode, triggerAbilityEffect };
+  return { mount, unmount, updateState, isActive, setAbilityAimMode, clearAbilityAimMode, triggerAbilityEffect, triggerUltimateEffect };
 })();

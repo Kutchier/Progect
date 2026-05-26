@@ -164,7 +164,6 @@ io.on('connection', (socket) => {
     if (room.phase !== GAME_PHASE.PLAYING) return cb?.({ ok: false, reason: 'Сейчас не ваш ход.' });
 
     room.processAction(socket.id, action);
-    io.to(room.id).emit('room_update', room.getClientState());
 
     if (room.phase === GAME_PHASE.GAME_OVER || room.phase === GAME_PHASE.VICTORY) {
       handleGameEnd(room);
@@ -229,6 +228,10 @@ io.on('connection', (socket) => {
       player.character.gold += item.amount;
       room.addLog(`${player.name} подбирает ${item.amount} золота.`);
     } else {
+      const MAX_INV = 8;
+      if ((player.character.inventory?.length || 0) >= MAX_INV) {
+        return cb?.({ ok: false, reason: `Инвентарь заполнен! Максимум ${MAX_INV} предметов.` });
+      }
       player.character.inventory.push(item);
       room.addLog(`${player.name} подбирает: ${item.name}`);
     }
@@ -320,10 +323,16 @@ function handleGameEnd(room) {
   let totalScore = 0;
   for (const p of players) {
     if (!p.character) continue;
-    const score = (p.character.level * 100) + (p.character.gold * 2) + (p.character.exp);
+    const kills = p.character.kills || 0;
+    const score = (p.character.level * 100)
+                + (p.character.gold * 3)
+                + (p.character.exp)
+                + (kills * 15)
+                + (room.floorNumber * 200)
+                + (won ? 1000 : 0);
     totalScore += score;
     savePlayerStats(p.name, {
-      kills: 0,
+      kills,
       gold: p.character.gold,
       level: p.character.level,
       won
@@ -333,7 +342,7 @@ function handleGameEnd(room) {
   if (players.length > 0) {
     saveScore({
       score: totalScore,
-      players: players.map(p => ({ name: p.name, class: p.character?.className, level: p.character?.level })),
+      players: players.map(p => ({ name: p.name, class: p.character?.className, level: p.character?.level, kills: p.character?.kills || 0 })),
       won,
       floor: room.floorNumber
     });

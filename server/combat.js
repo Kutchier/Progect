@@ -58,6 +58,11 @@ function applyDamage(target, damage) {
     finalDamage = Math.floor(finalDamage * 0.5);
   }
 
+  // Warrior passive: -15% incoming damage when HP < 30%
+  if (target.classId === 'warrior' && target.hp <= target.maxHp * 0.30) {
+    finalDamage = Math.floor(finalDamage * 0.85);
+  }
+
   target.hp = Math.max(0, target.hp - finalDamage);
   if (target.hp === 0) target.isAlive = false;
 
@@ -80,10 +85,34 @@ function processPlayerAction(gameState, playerId, action) {
       const target = aliveEnemies.find(e => e.id === action.targetId);
       if (!target) return { logs: ['Цель не найдена.'], stateChanged: false };
 
-      const hasWeapon = player.inventory && player.inventory.some(i => i.type === 'weapon');
-      if (!hasWeapon) return { logs: ['У вас нет оружия — вы не можете атаковать!'], stateChanged: false };
+      if (player.gridX !== undefined && target.gridX !== undefined) {
+        const range = getAttackRange(player);
+        const dist = gridDist(player.gridX, player.gridZ, target.gridX, target.gridZ);
+        if (dist > range) {
+          return { logs: [`${target.name} вне зоны атаки (${dist.toFixed(1)} / макс ${range}).`], stateChanged: false };
+        }
+      }
 
-      const { damage, isCrit } = calculateDamage(player, target);
+      // Shadow Step passive: 2× damage, guaranteed crit, consume the effect
+      let shadowMult = 1.0;
+      let shadowCrit = false;
+      if (hasEffect(player, 'shadowStep')) {
+        shadowMult = 2.0;
+        shadowCrit = true;
+        removeEffect(player, 'shadowStep');
+        logs.push(`${player.name} выходит из тени — смертоносный удар!`);
+      }
+
+      // Rogue passive: first attack of each combat is guaranteed crit
+      if (player.classId === 'rogue' && !player.firstAttackUsed) {
+        player.firstAttackUsed = true;
+        shadowCrit = true;
+        if (!hasEffect(player, 'shadowStep')) {
+          logs.push(`${player.name} атакует первым из засады!`);
+        }
+      }
+
+      const { damage, isCrit } = calculateDamage(player, target, shadowMult, shadowCrit);
       const { finalDamage } = applyDamage(target, damage);
 
       const critText = isCrit ? ' [КРИТ!]' : '';
@@ -92,6 +121,7 @@ function processPlayerAction(gameState, playerId, action) {
       if (!target.isAlive) {
         logs.push(`${target.name} повержен!`);
         incrementUltKills(player, target.isBoss ? 5 : 1);
+        player.kills = (player.kills || 0) + 1;
       }
       break;
     }
@@ -258,6 +288,12 @@ function useAbility(gameState, player, ability, targetId, targetCell) {
         if (!target.isAlive) {
           logs.push(`${target.name} повержен!`);
           incrementUltKills(player, target.isBoss ? 5 : 1);
+          player.kills = (player.kills || 0) + 1;
+          // Mage passive: 30% chance to refund 15 MP on kill
+          if (player.classId === 'mage' && Math.random() < 0.30) {
+            player.mp = Math.min(player.maxMp, player.mp + 15);
+            logs.push(`Магическая реакция! ${player.name} восстанавливает 15 MP.`);
+          }
         }
       }
       break;
@@ -388,7 +424,7 @@ function useUltimate(gameState, player) {
         addEffect(enemy, { type: 'stun', value: 1, duration: 1 });
         if (!enemy.isAlive) {
           logs.push(`  ${enemy.name} сокрушён!`);
-          incrementUltKills(player, 0);
+          player.kills = (player.kills || 0) + 1;
         } else {
           logs.push(`  ${enemy.name} оглушён!`);
         }
@@ -404,7 +440,10 @@ function useUltimate(gameState, player) {
         const { finalDamage } = applyDamage(enemy, damage);
         enemy.defense = savedDef;
         logs.push(`  ✦ ${enemy.name} получает ${finalDamage} урона [АРМАГЕДДОН!]`);
-        if (!enemy.isAlive) logs.push(`  ${enemy.name} испепелён!`);
+        if (!enemy.isAlive) {
+          logs.push(`  ${enemy.name} испепелён!`);
+          player.kills = (player.kills || 0) + 1;
+        }
       }
       break;
     }
@@ -418,7 +457,10 @@ function useUltimate(gameState, player) {
         const { damage } = calculateDamage(player, target, 2.0, true);
         const { finalDamage } = applyDamage(target, damage);
         logs.push(`  † Удар ${i + 1}: ${target.name} — ${finalDamage} урона [КРИТ!]`);
-        if (!target.isAlive) logs.push(`  ${target.name} повержен!`);
+        if (!target.isAlive) {
+          logs.push(`  ${target.name} повержен!`);
+          player.kills = (player.kills || 0) + 1;
+        }
       }
       break;
     }
@@ -439,7 +481,10 @@ function useUltimate(gameState, player) {
         const { damage } = calculateDamage(player, enemy, mult, false);
         const { finalDamage } = applyDamage(enemy, damage);
         logs.push(`  ✚ ${enemy.name} получает ${finalDamage} священного урона${enemy.isUndead ? ' [НЕЖИТЬ!]' : ''}!`);
-        if (!enemy.isAlive) logs.push(`  ${enemy.name} уничтожен!`);
+        if (!enemy.isAlive) {
+          logs.push(`  ${enemy.name} уничтожен!`);
+          player.kills = (player.kills || 0) + 1;
+        }
       }
       break;
     }
@@ -579,6 +624,13 @@ function processEnemyTurns(gameState) {
         logs.push(`${enemy.name} промахивается!`);
         continue;
       }
+    }
+
+    // Dodge check based on target speed
+    const dodgeChance = Math.min(0.20, (target.speed || 0) * 0.008);
+    if (dodgeChance > 0 && Math.random() < dodgeChance) {
+      logs.push(`${target.name} уклоняется от атаки ${enemy.name}!`);
+      continue;
     }
 
     switch (ability) {
@@ -758,7 +810,11 @@ function awardExpAndLoot(gameState, defeatedEnemies) {
     }
   }
 
-  const expPerPlayer = Math.floor(totalExp / alivePlayers.length);
+  let expPerPlayer = Math.floor(totalExp / alivePlayers.length);
+  // Full team synergy: +10% exp
+  if (gameState.synergies?.fullTeamBonus) {
+    expPerPlayer = Math.floor(expPerPlayer * 1.10);
+  }
   let goldPerPlayer = Math.floor(totalGold / alivePlayers.length);
 
   for (const player of alivePlayers) {
@@ -798,15 +854,34 @@ function resetActed(gameState) {
 // ─── Grid Combat System ───────────────────────────────────────────────────────
 
 const GRID_SIZE = 14;
+const LEVEL_HEIGHT = 1.2; // vertical gap between floor levels (used by combat3d.js)
 
 const ROOM_THEMES = ['dungeon','crypt','forest','ice','lava','library','throne','sewer','temple','workshop'];
-const ROOM_SHAPES = ['square', 'two_chambers', 'hourglass', 'fortified', 'three_lanes'];
+const ROOM_SHAPES = [
+  // single-level
+  'square', 'two_chambers', 'hourglass', 'fortified', 'three_lanes',
+  'l_shape', 'cross', 'pillar_grid', 'arena_ring', 'scattered_pillars',
+  // multi-level (2-3 floors)
+  'elevated_center', 'split_elevation', 'tiered_arena',
+];
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+function isWalkable(cell) {
+  return cell === 'floor' || cell === 'stairs';
+}
 
 function initializeCombatGrid(players, enemies) {
   const size = GRID_SIZE;
   const theme = ROOM_THEMES[Math.floor(Math.random() * ROOM_THEMES.length)];
   const shape = ROOM_SHAPES[Math.floor(Math.random() * ROOM_SHAPES.length)];
   const grid = Array.from({ length: size }, () => Array(size).fill('floor'));
+  const elevations = Array.from({ length: size }, () => Array(size).fill(0));
 
   // Border walls
   for (let i = 0; i < size; i++) {
@@ -816,15 +891,9 @@ function initializeCombatGrid(players, enemies) {
 
   switch (shape) {
     case 'two_chambers': {
-      // Vertical double wall at x=6..7 divides room into left/right chambers.
-      // Gap at z=5..8 lets players and enemies cross between chambers.
       for (let z = 1; z < size - 1; z++) {
-        if (z < 5 || z > 8) {
-          grid[6][z] = 'wall';
-          grid[7][z] = 'wall';
-        }
+        if (z < 5 || z > 8) { grid[6][z] = 'wall'; grid[7][z] = 'wall'; }
       }
-      // Scatter obstacles inside both chambers
       let placed = 0;
       for (let attempt = 0; attempt < 200 && placed < 4; attempt++) {
         const x = Math.random() < 0.5 ? 2 + Math.floor(Math.random() * 3) : 9 + Math.floor(Math.random() * 3);
@@ -834,20 +903,12 @@ function initializeCombatGrid(players, enemies) {
       break;
     }
     case 'hourglass': {
-      // Top (z=1..4) and bottom (z=9..12) sections are narrow:
-      // only the side corridors (x=1..2, x=11..12) and center channel (x=6..7) are open.
-      // Middle (z=5..8) is fully open.
       for (let z = 1; z <= 4; z++) {
-        for (let x = 3; x <= 10; x++) {
-          if (x !== 6 && x !== 7) grid[x][z] = 'wall';
-        }
+        for (let x = 3; x <= 10; x++) { if (x !== 6 && x !== 7) grid[x][z] = 'wall'; }
       }
       for (let z = 9; z <= 12; z++) {
-        for (let x = 3; x <= 10; x++) {
-          if (x !== 6 && x !== 7) grid[x][z] = 'wall';
-        }
+        for (let x = 3; x <= 10; x++) { if (x !== 6 && x !== 7) grid[x][z] = 'wall'; }
       }
-      // Obstacles only in the wide middle zone
       let placed = 0;
       for (let attempt = 0; attempt < 200 && placed < 4; attempt++) {
         const x = 3 + Math.floor(Math.random() * 8);
@@ -857,54 +918,198 @@ function initializeCombatGrid(players, enemies) {
       break;
     }
     case 'fortified': {
-      // Horizontal wall at z=6 stretching across the room.
-      // Gate (gap) at x=5..8 lets units cross.
-      // Player zone (x=1..2) and enemy zone (x=11..12) stay clear on both sides.
-      for (let x = 3; x <= 10; x++) {
-        if (x < 5 || x > 8) grid[x][6] = 'wall';
-      }
-      // Obstacles on each side of the wall
+      for (let x = 3; x <= 10; x++) { if (x < 5 || x > 8) grid[x][6] = 'wall'; }
       let placed = 0;
       for (let attempt = 0; attempt < 200 && placed < 5; attempt++) {
         const x = 3 + Math.floor(Math.random() * 8);
-        const z = Math.random() < 0.5
-          ? 2 + Math.floor(Math.random() * 3)
-          : 8 + Math.floor(Math.random() * 3);
+        const z = Math.random() < 0.5 ? 2 + Math.floor(Math.random() * 3) : 8 + Math.floor(Math.random() * 3);
         if (grid[x][z] === 'floor') { grid[x][z] = 'obstacle'; placed++; }
       }
       break;
     }
     case 'three_lanes': {
-      // Two vertical wall strips at x=4 and x=9 create three fighting lanes.
-      // Each strip has two gaps: one near the top (z=2..3) and one near the bottom (z=10..11),
-      // so units can weave between lanes from both ends.
       for (let z = 1; z < size - 1; z++) {
-        const inTopGap    = z >= 2  && z <= 3;
-        const inBottomGap = z >= 10 && z <= 11;
-        if (!inTopGap && !inBottomGap) {
-          grid[4][z] = 'wall';
-          grid[9][z] = 'wall';
-        }
+        const inTopGap = z >= 2 && z <= 3, inBottomGap = z >= 10 && z <= 11;
+        if (!inTopGap && !inBottomGap) { grid[4][z] = 'wall'; grid[9][z] = 'wall'; }
       }
-      // Obstacles inside each lane
       let placed = 0;
       for (let attempt = 0; attempt < 200 && placed < 5; attempt++) {
         const lane = Math.floor(Math.random() * 3);
-        const x = lane === 0 ? 2 + Math.floor(Math.random() * 2)
-                : lane === 1 ? 5 + Math.floor(Math.random() * 4)
-                :              10 + Math.floor(Math.random() * 2);
+        const x = lane === 0 ? 2 + Math.floor(Math.random() * 2) : lane === 1 ? 5 + Math.floor(Math.random() * 4) : 10 + Math.floor(Math.random() * 2);
         const z = 4 + Math.floor(Math.random() * 6);
         if (grid[x][z] === 'floor') { grid[x][z] = 'obstacle'; placed++; }
       }
       break;
     }
+    case 'l_shape': {
+      // Top-right corner walled off → L-shaped room
+      const cornerW = 5 + Math.floor(Math.random() * 2);
+      const cornerH = 5 + Math.floor(Math.random() * 2);
+      for (let x = size - 1 - cornerW; x <= size - 2; x++) {
+        for (let z = 1; z <= cornerH; z++) { grid[x][z] = 'wall'; }
+      }
+      // Random obstacles in L-area
+      let placed = 0;
+      for (let attempt = 0; attempt < 300 && placed < 5; attempt++) {
+        const x = 2 + Math.floor(Math.random() * (size - 4));
+        const z = 2 + Math.floor(Math.random() * (size - 4));
+        if (grid[x][z] === 'floor') { grid[x][z] = 'obstacle'; placed++; }
+      }
+      break;
+    }
+    case 'cross': {
+      // Wall off 4 corners → cross-shaped room
+      const cs = 3 + Math.floor(Math.random() * 2);
+      for (let x = 1; x <= cs; x++) {
+        for (let z = 1; z <= cs; z++) {
+          grid[x][z] = 'wall'; grid[x][size - 1 - z] = 'wall';
+          grid[size - 1 - x][z] = 'wall'; grid[size - 1 - x][size - 1 - z] = 'wall';
+        }
+      }
+      let placed = 0;
+      for (let attempt = 0; attempt < 200 && placed < 5; attempt++) {
+        const x = cs + 1 + Math.floor(Math.random() * (size - 2 * cs - 2));
+        const z = cs + 1 + Math.floor(Math.random() * (size - 2 * cs - 2));
+        if (grid[x][z] === 'floor') { grid[x][z] = 'obstacle'; placed++; }
+      }
+      break;
+    }
+    case 'pillar_grid': {
+      // Regular grid of stone pillars with open corridors between them
+      const cols = [3, 6, 10], rows = [3, 6, 10];
+      for (const px of cols) {
+        for (const pz of rows) {
+          if (grid[px][pz] === 'floor') grid[px][pz] = 'obstacle';
+          if (Math.random() < 0.6 && px + 1 < size - 1 && grid[px + 1][pz] === 'floor') grid[px + 1][pz] = 'obstacle';
+          if (Math.random() < 0.6 && pz + 1 < size - 1 && grid[px][pz + 1] === 'floor') grid[px][pz + 1] = 'obstacle';
+        }
+      }
+      break;
+    }
+    case 'arena_ring': {
+      // Circular ring of walls with 4 gate openings
+      const cx = Math.floor(size / 2), cz = Math.floor(size / 2);
+      for (let x = 1; x < size - 1; x++) {
+        for (let z = 1; z < size - 1; z++) {
+          const dx = x - cx, dz = z - cz;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          if (dist >= 3.5 && dist <= 4.8) {
+            const isGate = (Math.abs(dx) <= 1.2 && Math.abs(dz) <= 1.2);
+            if (!isGate) grid[x][z] = 'wall';
+          }
+        }
+      }
+      let placed = 0;
+      for (let attempt = 0; attempt < 200 && placed < 4; attempt++) {
+        const ax = cx - 2 + Math.floor(Math.random() * 5);
+        const az = cz - 2 + Math.floor(Math.random() * 5);
+        if (ax >= 1 && az >= 1 && ax < size - 1 && az < size - 1 && grid[ax][az] === 'floor') { grid[ax][az] = 'obstacle'; placed++; }
+      }
+      break;
+    }
+    case 'scattered_pillars': {
+      // Clusters of 2-3 obstacle cells scattered around the room
+      const numGroups = 5 + Math.floor(Math.random() * 4);
+      for (let g = 0; g < numGroups; g++) {
+        const gx = 2 + Math.floor(Math.random() * (size - 4));
+        const gz = 2 + Math.floor(Math.random() * (size - 4));
+        const groupSize = 1 + Math.floor(Math.random() * 3);
+        const offsets = [[0,0],[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1]];
+        shuffleArray(offsets);
+        let placed = 0;
+        for (const [ox, oz] of offsets) {
+          if (placed >= groupSize) break;
+          const px = gx + ox, pz = gz + oz;
+          if (px >= 1 && pz >= 1 && px < size - 1 && pz < size - 1 && grid[px][pz] === 'floor') {
+            grid[px][pz] = 'obstacle'; placed++;
+          }
+        }
+      }
+      break;
+    }
+    case 'elevated_center': {
+      // Center platform at level 1 — stairs connect ground to platform at 4 sides
+      const pMin = 5, pMax = 8;
+      for (let x = pMin; x <= pMax; x++) {
+        for (let z = pMin; z <= pMax; z++) { elevations[x][z] = 1; }
+      }
+      // Stairs at each edge of the platform
+      const stairPairs = [
+        [pMin - 1, 6], [pMin - 1, 7],
+        [pMax + 1, 6], [pMax + 1, 7],
+        [6, pMin - 1], [7, pMin - 1],
+        [6, pMax + 1], [7, pMax + 1],
+      ];
+      for (const [sx, sz] of stairPairs) {
+        if (sx >= 1 && sz >= 1 && sx < size - 1 && sz < size - 1) {
+          grid[sx][sz] = 'stairs';
+          elevations[sx][sz] = 0;
+        }
+      }
+      // Obstacles on platform
+      let placed = 0;
+      for (let attempt = 0; attempt < 100 && placed < 2; attempt++) {
+        const x = pMin + 1 + Math.floor(Math.random() * (pMax - pMin - 1));
+        const z = pMin + 1 + Math.floor(Math.random() * (pMax - pMin - 1));
+        if (grid[x][z] === 'floor') { grid[x][z] = 'obstacle'; placed++; }
+      }
+      // Obstacles on ground floor
+      placed = 0;
+      for (let attempt = 0; attempt < 200 && placed < 4; attempt++) {
+        const x = 1 + Math.floor(Math.random() * (size - 2));
+        const z = 1 + Math.floor(Math.random() * (size - 2));
+        if (grid[x][z] === 'floor' && elevations[x][z] === 0) { grid[x][z] = 'obstacle'; placed++; }
+      }
+      break;
+    }
+    case 'split_elevation': {
+      // Left half level 0, right half level 1 — stairs column at x=7
+      for (let x = 8; x <= size - 2; x++) {
+        for (let z = 1; z < size - 1; z++) { elevations[x][z] = 1; }
+      }
+      for (let z = 2; z <= size - 3; z++) {
+        grid[7][z] = 'stairs';
+        elevations[7][z] = 0;
+      }
+      // Obstacles on both sides
+      let placed = 0;
+      for (let attempt = 0; attempt < 200 && placed < 3; attempt++) {
+        const x = 2 + Math.floor(Math.random() * 4);
+        const z = 2 + Math.floor(Math.random() * (size - 4));
+        if (grid[x][z] === 'floor') { grid[x][z] = 'obstacle'; placed++; }
+      }
+      placed = 0;
+      for (let attempt = 0; attempt < 200 && placed < 3; attempt++) {
+        const x = 9 + Math.floor(Math.random() * (size - 11));
+        const z = 2 + Math.floor(Math.random() * (size - 4));
+        if (grid[x][z] === 'floor') { grid[x][z] = 'obstacle'; placed++; }
+      }
+      break;
+    }
+    case 'tiered_arena': {
+      // Three levels: outer ring = 0, middle ring = 1, inner platform = 2
+      for (let x = 3; x <= 10; x++) {
+        for (let z = 3; z <= 10; z++) { if (grid[x][z] !== 'wall') elevations[x][z] = 1; }
+      }
+      for (let x = 5; x <= 8; x++) {
+        for (let z = 5; z <= 8; z++) { if (grid[x][z] !== 'wall') elevations[x][z] = 2; }
+      }
+      // Stairs level 0 → 1 at sides of middle ring
+      for (const [sx, sz] of [[2,6],[2,7],[11,6],[11,7],[6,2],[7,2],[6,11],[7,11]]) {
+        if (grid[sx][sz] !== 'wall') { grid[sx][sz] = 'stairs'; elevations[sx][sz] = 0; }
+      }
+      // Stairs level 1 → 2 at sides of inner platform
+      for (const [sx, sz] of [[4,6],[4,7],[9,6],[9,7],[6,4],[7,4],[6,9],[7,9]]) {
+        if (grid[sx][sz] !== 'wall') { grid[sx][sz] = 'stairs'; elevations[sx][sz] = 1; }
+      }
+      break;
+    }
     case 'square':
     default: {
-      // Standard open arena with random scattered obstacles
-      const numObstacles = 4 + Math.floor(Math.random() * 5);
+      const numObstacles = 4 + Math.floor(Math.random() * 6);
       let placed = 0;
       for (let attempt = 0; attempt < 200 && placed < numObstacles; attempt++) {
-        const x = 4 + Math.floor(Math.random() * 6);
+        const x = 3 + Math.floor(Math.random() * 8);
         const z = 2 + Math.floor(Math.random() * (size - 4));
         if (grid[x][z] === 'floor') { grid[x][z] = 'obstacle'; placed++; }
       }
@@ -912,25 +1117,43 @@ function initializeCombatGrid(players, enemies) {
     }
   }
 
-  // Place players on left side (x = 1-2)
+  // Collect valid spawn cells in each zone and pick randomly
+  const collectSpawnCells = (xMin, xMax, preferLevel) => {
+    const preferred = [], fallback = [];
+    for (let x = xMin; x <= xMax; x++) {
+      for (let z = 1; z < size - 1; z++) {
+        if (!isWalkable(grid[x][z])) continue;
+        if (elevations[x][z] === preferLevel) preferred.push({ x, z });
+        else fallback.push({ x, z });
+      }
+    }
+    const cells = preferred.length >= 2 ? preferred : [...preferred, ...fallback];
+    shuffleArray(cells);
+    return cells;
+  };
+
+  const playerCells = collectSpawnCells(1, 3, 0);
+  const enemyCells  = collectSpawnCells(size - 4, size - 2, 0);
+
   const playerArr = Object.values(players).filter(p => p && p.isAlive);
-  const spawnZ = [3, 7, 5, 10, 2, 9];
   for (let i = 0; i < playerArr.length; i++) {
     const p = playerArr[i];
-    p.gridX = 1 + (i % 2);
-    p.gridZ = Math.min(spawnZ[i] ?? (2 + i * 2), size - 2);
+    const cell = playerCells[i % playerCells.length];
+    p.gridX = cell.x;
+    p.gridZ = cell.z;
+    p.gridY = elevations[cell.x][cell.z];
     grid[p.gridX][p.gridZ] = 'floor';
   }
 
-  // Place enemies on right side (x = size-2 to size-3)
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i];
-    e.gridX = size - 2 - (i % 2);
-    e.gridZ = Math.min(spawnZ[i] ?? (2 + i * 2), size - 2);
-    grid[e.gridX][e.gridZ] = 'floor';
+    const cell = enemyCells[i % enemyCells.length];
+    e.gridX = cell.x;
+    e.gridZ = cell.z;
+    e.gridY = elevations[cell.x][cell.z];
   }
 
-  return { size, grid, theme };
+  return { size, grid, theme, elevations };
 }
 
 function getMoveRange(entity) {
@@ -965,6 +1188,7 @@ function bfsReachable(fromX, fromZ, moveRange, combatGrid, players, enemies, mov
   const visited = new Map();
   const queue = [[fromX, fromZ, 0]];
   const DIRS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+  const elev = combatGrid.elevations;
 
   while (queue.length) {
     const [x, z, dist] = queue.shift();
@@ -974,11 +1198,27 @@ function bfsReachable(fromX, fromZ, moveRange, combatGrid, players, enemies, mov
     if (dist > 0) reachable.add(key);
     if (dist >= moveRange) continue;
 
+    const curLevel = elev ? elev[x][z] : 0;
+
     for (const [dx, dz] of DIRS) {
       const nx = x + dx, nz = z + dz;
       if (nx < 0 || nz < 0 || nx >= combatGrid.size || nz >= combatGrid.size) continue;
-      if (combatGrid.grid[nx][nz] !== 'floor') continue;
+      if (!isWalkable(combatGrid.grid[nx][nz])) continue;
       if (isOccupied(nx, nz, players, enemies, moverId)) continue;
+
+      // Elevation check: can only change level when current or destination cell is stairs
+      if (elev) {
+        const destLevel = elev[nx][nz];
+        const diff = Math.abs(destLevel - curLevel);
+        if (diff === 1) {
+          const curStairs = combatGrid.grid[x][z] === 'stairs';
+          const dstStairs = combatGrid.grid[nx][nz] === 'stairs';
+          if (!curStairs && !dstStairs) continue;
+        } else if (diff > 1) {
+          continue;
+        }
+      }
+
       const nkey = `${nx},${nz}`;
       const ndist = dist + 1;
       if (!visited.has(nkey) || visited.get(nkey) > ndist) queue.push([nx, nz, ndist]);
@@ -1003,7 +1243,7 @@ function processMoveAction(gameState, playerId, targetX, targetZ) {
   if (targetX < 0 || targetZ < 0 || targetX >= combatGrid.size || targetZ >= combatGrid.size) {
     return { logs: ['Недопустимая позиция.'], stateChanged: false };
   }
-  if (combatGrid.grid[targetX][targetZ] !== 'floor') {
+  if (!isWalkable(combatGrid.grid[targetX][targetZ])) {
     return { logs: ['Нельзя переместиться сюда — препятствие!'], stateChanged: false };
   }
   if (isOccupied(targetX, targetZ, gameState.players, aliveEnemies, playerId)) {
@@ -1019,6 +1259,7 @@ function processMoveAction(gameState, playerId, targetX, targetZ) {
 
   player.gridX = targetX;
   player.gridZ = targetZ;
+  if (combatGrid.elevations) player.gridY = combatGrid.elevations[targetX][targetZ];
   player.hasMoved = true;
   return { logs, stateChanged: true };
 }
@@ -1046,7 +1287,18 @@ function processSingleEnemyTurn(gameState, enemy) {
 
   if (alivePlayers.length === 0) return logs;
 
-  // Move toward nearest player
+  // Boss phase 2: activate at 50% HP
+  if (enemy.isBoss && !enemy.phase2Active && enemy.hp <= enemy.maxHp * 0.5) {
+    enemy.phase2Active = true;
+    enemy.attack = Math.floor(enemy.attack * 1.3);
+    enemy.critChance = (enemy.critChance || 0.1) + 0.15;
+    logs.push(`★ ${enemy.name} ВПАДАЕТ В ЯРОСТЬ! [ФАЗА 2] Атака усилена на 30%! ★`);
+  }
+
+  const atkRange = enemy.attackRange || 1.5;
+  const isRanged = atkRange > 2;
+
+  // Movement: melee enemies close in, ranged enemies maintain optimal distance
   if (room.combatGrid) {
     let nearestPlayer = null;
     let nearestDist = Infinity;
@@ -1056,18 +1308,50 @@ function processSingleEnemyTurn(gameState, enemy) {
       if (d < nearestDist) { nearestDist = d; nearestPlayer = p; }
     }
 
-    const atkRange = 1.5; // enemies always melee
-    if (nearestPlayer && nearestDist > atkRange && room.combatGrid) {
+    if (nearestPlayer) {
       const moveRange = 2;
       const reachable = bfsReachable(enemy.gridX, enemy.gridZ, moveRange, room.combatGrid, gameState.players, room.enemies.filter(e => e.isAlive), enemy.id);
-      let bestDist = nearestDist;
-      let bestPos = null;
-      for (const key of reachable) {
-        const [bx, bz] = key.split(',').map(Number);
-        const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
-        if (d < bestDist) { bestDist = d; bestPos = { x: bx, z: bz }; }
+
+      if (!isRanged && nearestDist > atkRange) {
+        // Melee: move as close as possible
+        let bestDist = nearestDist;
+        let bestPos = null;
+        for (const key of reachable) {
+          const [bx, bz] = key.split(',').map(Number);
+          const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
+          if (d < bestDist) { bestDist = d; bestPos = { x: bx, z: bz }; }
+        }
+        if (bestPos) {
+          enemy.gridX = bestPos.x;
+          enemy.gridZ = bestPos.z;
+          if (room.combatGrid.elevations) enemy.gridY = room.combatGrid.elevations[bestPos.x][bestPos.z];
+        }
+      } else if (isRanged && nearestDist > atkRange) {
+        // Ranged: move to get within attack range, but not too close (prefer ~60% of range)
+        const idealDist = atkRange * 0.6;
+        let bestScore = Infinity;
+        let bestPos = null;
+        for (const key of reachable) {
+          const [bx, bz] = key.split(',').map(Number);
+          const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
+          const score = Math.abs(d - idealDist);
+          if (d <= atkRange && score < bestScore) { bestScore = score; bestPos = { x: bx, z: bz }; }
+        }
+        if (!bestPos) {
+          // Fallback: just get closer
+          let bestDist = nearestDist;
+          for (const key of reachable) {
+            const [bx, bz] = key.split(',').map(Number);
+            const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
+            if (d < bestDist) { bestDist = d; bestPos = { x: bx, z: bz }; }
+          }
+        }
+        if (bestPos) {
+          enemy.gridX = bestPos.x;
+          enemy.gridZ = bestPos.z;
+          if (room.combatGrid.elevations) enemy.gridY = room.combatGrid.elevations[bestPos.x][bestPos.z];
+        }
       }
-      if (bestPos) { enemy.gridX = bestPos.x; enemy.gridZ = bestPos.z; }
     }
   }
 
@@ -1080,14 +1364,20 @@ function processSingleEnemyTurn(gameState, enemy) {
     if (Math.random() < missEff.value) { logs.push(`${enemy.name} промахивается!`); return logs; }
   }
 
-  // Check if target is in attack range
-  const atkRange = 1.5;
+  // Check if target is in attack range (use enemy's actual range)
   if (target.gridX !== undefined && enemy.gridX !== undefined) {
     const dist = gridDist(enemy.gridX, enemy.gridZ, target.gridX, target.gridZ);
     if (dist > atkRange) {
       logs.push(`${enemy.name} не может достать до цели.`);
       return logs;
     }
+  }
+
+  // Dodge check: player speed gives up to 20% dodge chance
+  const dodgeChance = Math.min(0.20, (target.speed || 0) * 0.008);
+  if (dodgeChance > 0 && Math.random() < dodgeChance) {
+    logs.push(`${target.name} уклоняется от атаки ${enemy.name}!`);
+    return logs;
   }
 
   const ability = chooseEnemyAbility(enemy);
