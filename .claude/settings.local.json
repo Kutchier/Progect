@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem \"e:\\\\Projects\\\\game\" -ErrorAction SilentlyContinue; if \\(-not \\(Test-Path \"e:\\\\Projects\\\\game\"\\)\\) { \"Directory does not exist\" } else { \"Directory exists\" })",
+      "Bash(curl -s http://localhost:3000/api/scores)",
+      "Bash(node -e ' *)",
+      "Bash(cd /d \"e:\\\\Projects\\\\game\")",
+      "Bash(node -e \"require\\('./server/combat.js'\\); require\\('./server/enemies.js'\\); require\\('./server/classes.js'\\); console.log\\('Server modules OK'\\)\")",
+      "Bash(timeout 4 node server/server.js)",
+      "Bash(Get-ChildItem -Path \"e:\\\\Projects\\\\game\" -Recurse -Force)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Format-Table FullName)",
+      "Bash(Get-ChildItem -Recurse -Path \"e:\\\\Projects\\\\game\\\\server\" -Filter \"*.js\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"e:\\\\Projects\\\\game\" -Recurse -Directory)",
+      "Bash(node -e \"const { GameRoom } = require\\('./server/game'\\); console.log\\('game.js loads OK'\\)\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\MarusinAS\\\\Desktop\\\\game\" -Recurse -File)",
+      "Bash(Select-Object FullName, Extension)",
+      "Bash(Sort-Object FullName)",
+      "Bash(node -e \"require\\('./server/combat.js'\\); require\\('./server/game.js'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"const {CLASSES} = require\\('./server/classes'\\); const w = CLASSES.warrior; console.log\\(w.abilities.map\\(a => a.id + ' rangeType=' + a.rangeType + ' maxRange=' + a.maxRange\\).join\\('\\\\n'\\)\\);\")",
+      "PowerShell(Get-ChildItem c:\\\\Users\\\\MarusinAS\\\\Desktop\\\\game\\\\ | Where-Object {$_.Name -ne \"node_modules\"} | Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\MarusinAS\\\\Desktop\\\\game\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(dir \"c:\\\\Users\\\\MarusinAS\\\\Desktop\\\\game\" /b /a)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\ozheg\\\\OneDrive\\\\Рабочий стол\\\\Progect-main\" -MaxDepth 1 | Where-Object { $_.Name -ne \"node_modules\" } | Select-Object Name, PSIsContainer)"
+    ]
+  }
+}

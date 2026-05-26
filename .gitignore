@@ -1,0 +1,33 @@
+@"
+# OS & Windows
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+NTUSER.DAT*
+
+# IDE & Редакторы
+.vscode/
+.idea/
+*.swp
+*~
+
+# Зависимости
+node_modules/
+vendor/
+__pycache__/
+*.egg-info/
+
+# Окружение и секреты
+.env
+*.env.*
+!sample.env
+*.pem
+*.key
+token*.txt
+
+# Сборка и логи
+dist/
+build/
+*.log
+*.tmp
+"@ | Out-File -FilePath ".gitignore" -Encoding utf8
