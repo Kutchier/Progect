@@ -374,12 +374,12 @@ function createCharacter(classId, playerName, playerId) {
     maxHp: cls.baseStats.maxHp,
     mp: cls.baseStats.mp,
     maxMp: cls.baseStats.maxMp,
-    attack: cls.baseStats.attack,
-    defense: cls.baseStats.defense,
+    attack: cls.baseStats.attack + (cls.startingItem.attackBonus || 0),
+    defense: cls.baseStats.defense + (cls.startingItem.defenseBonus || 0),
     speed: cls.baseStats.speed,
     critChance: cls.baseStats.critChance,
     abilities: cls.abilities.map(a => ({ ...a })),
-    inventory: [{ ...cls.startingItem, quantity: 1 }],
+    inventory: [{ ...cls.startingItem, quantity: 1, statsApplied: true }],
     potions: 2,
     gold: 0,
     isAlive: true,
@@ -393,25 +393,182 @@ function createCharacter(classId, playerName, playerId) {
     ultReady: false,
     ultKillsNeeded: cls.ultKillsNeeded || 5,
     ultName: cls.ultName || 'Ульта',
-    ultDescription: cls.ultDescription || ''
+    ultDescription: cls.ultDescription || '',
+    passives: {},
+    pendingLevelUp: null
   };
+}
+
+// ── Level-Up Option Pool ──────────────────────────────────────────────────────
+const LEVEL_UP_OPTIONS = [
+  // Universal stat boosts
+  { id: 'hp_up',      name: 'Железная воля',       desc: '+20 макс. HP, восстановить 15 HP',       icon: '❤', tags: [] },
+  { id: 'mp_up',      name: 'Медитация',            desc: '+20 макс. маны, восстановить 15 MP',      icon: '💧', tags: [] },
+  { id: 'atk_up',     name: 'Закалённый клинок',    desc: '+4 к атаке',                              icon: '⚔', tags: [] },
+  { id: 'def_up',     name: 'Стальная кожа',        desc: '+3 к защите',                             icon: '🛡', tags: [] },
+  { id: 'spd_up',     name: 'Лёгкий шаг',           desc: '+2 к скорости',                           icon: '💨', tags: [] },
+  { id: 'crit_up',    name: 'Острый глаз',           desc: '+5% к шансу крита',                       icon: '✦', tags: [] },
+  { id: 'potion_up',  name: 'Запасливый',            desc: '+1 зелье лечения',                        icon: '🧪', tags: [] },
+
+  // Stat tradeoffs
+  { id: 'berserker',   name: 'Берсерк',          desc: '+8 атаки, −4 защиты',             icon: '⚡', tags: [] },
+  { id: 'tank',        name: 'Монолит',           desc: '+8 защиты, −3 атаки',             icon: '🏔', tags: [] },
+  { id: 'glasscannon', name: 'Стеклянная пушка',  desc: '+12 атаки, −15 макс. HP',         icon: '💥', tags: [] },
+
+  // Passives
+  { id: 'lifesteal',   name: 'Кровожадность',   desc: 'Обычные атаки восстанавливают 8% нанесённого урона', icon: '🩸', tags: [] },
+  { id: 'thorns',      name: 'Шипы',             desc: 'При получении урона наносить 15% входящего урона обратно врагу', icon: '🌵', tags: [] },
+  { id: 'mana_shield', name: 'Маговый щит',     desc: 'Раз за ход: поглотить смертельный удар, потратив 30 MP', icon: '💜', tags: [] },
+
+  // Class-specific — Warrior
+  { id: 'warrior_endure',    name: 'Стойкость воина',   desc: 'Защита в стойке блокирует 70% урона (было 50%)',          icon: '🛡', tags: ['warrior'] },
+  { id: 'warrior_execute_cd',name: 'Судный час',         desc: '"Казнь" перезаряжается за 2 хода (было 3)',               icon: '⚔', tags: ['warrior'] },
+
+  // Class-specific — Mage
+  { id: 'mage_arcane',   name: 'Аркановая душа',    desc: '+30 макс. маны, регенерация +3 MP/ход',                    icon: '✦', tags: ['mage'] },
+  { id: 'mage_overload', name: 'Перегрузка',         desc: '"Огненный шар" −1 кд, +0.3 к множителю урона заклинаний', icon: '🔥', tags: ['mage'] },
+
+  // Class-specific — Rogue
+  { id: 'rogue_poison',    name: 'Мастер яда',      desc: 'Яд наносит 15% HP/ход (было 10%)',                          icon: '☠', tags: ['rogue'] },
+  { id: 'rogue_shadow_cd', name: 'Мастер теней',    desc: '"Шаг тени" перезаряжается за 2 хода (было 4)',              icon: '†', tags: ['rogue'] },
+
+  // Class-specific — Cleric
+  { id: 'cleric_aura',     name: 'Мощная аура',   desc: 'Аура исцеления лечит 6 HP/ход (было 3)',                      icon: '✚', tags: ['cleric'] },
+  { id: 'cleric_rez_cost', name: 'Благодать',      desc: '"Воскрешение" стоит 35 MP (было 50), кд −2',                 icon: '✚', tags: ['cleric'] }
+];
+
+function generateLevelUpOptions(character, count = 3) {
+  const p = character.passives || {};
+
+  // Map passive keys → option ids that granted them (to avoid re-offering)
+  const takenIds = new Set();
+  if (p.lifesteal)       takenIds.add('lifesteal');
+  if (p.thorns)          takenIds.add('thorns');
+  if (p.manaShield)      takenIds.add('mana_shield');
+  if (p.extraMpRegen)    takenIds.add('mage_arcane');
+  if (p.spellDmgBonus)   takenIds.add('mage_overload');
+  if (p.poisonStrength)  takenIds.add('rogue_poison');
+  if (p.clericAuraBonus) takenIds.add('cleric_aura');
+  if (p.defendReduction) takenIds.add('warrior_endure');
+
+  const execute   = character.abilities?.find(a => a.id === 'execute');
+  const shadowSt  = character.abilities?.find(a => a.id === 'shadow_step');
+  const resurrect = character.abilities?.find(a => a.id === 'resurrect');
+  const fireball  = character.abilities?.find(a => a.id === 'fireball');
+  if (execute   && execute.cooldown   < 3) takenIds.add('warrior_execute_cd');
+  if (shadowSt  && shadowSt.cooldown  < 4) takenIds.add('rogue_shadow_cd');
+  if (resurrect && resurrect.mpCost   < 50) takenIds.add('cleric_rez_cost');
+  if (fireball  && fireball.cooldown  < 3) takenIds.add('mage_overload');
+
+  const pool = LEVEL_UP_OPTIONS.filter(o =>
+    (o.tags.length === 0 || o.tags.includes(character.classId)) && !takenIds.has(o.id)
+  );
+
+  // Fisher-Yates shuffle
+  const arr = [...pool];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+
+  return arr.slice(0, count).map(o => ({ id: o.id, name: o.name, desc: o.desc, icon: o.icon }));
+}
+
+function applyLevelUpOption(character, optionId) {
+  if (!character.passives) character.passives = {};
+
+  switch (optionId) {
+    case 'hp_up':
+      character.maxHp += 20;
+      character.hp = Math.min(character.maxHp, character.hp + 15);
+      break;
+    case 'mp_up':
+      character.maxMp += 20;
+      character.mp = Math.min(character.maxMp, character.mp + 15);
+      break;
+    case 'atk_up':   character.attack  += 4; break;
+    case 'def_up':   character.defense += 3; break;
+    case 'spd_up':   character.speed   += 2; break;
+    case 'crit_up':  character.critChance = Math.min(0.90, (character.critChance || 0) + 0.05); break;
+    case 'potion_up': character.potions += 1; break;
+
+    case 'berserker':
+      character.attack  += 8;
+      character.defense  = Math.max(0, character.defense - 4);
+      break;
+    case 'tank':
+      character.defense += 8;
+      character.attack   = Math.max(1, character.attack - 3);
+      break;
+    case 'glasscannon':
+      character.attack  += 12;
+      character.maxHp    = Math.max(1, character.maxHp - 15);
+      character.hp       = Math.min(character.hp, character.maxHp);
+      break;
+
+    case 'lifesteal':   character.passives.lifesteal  = 0.08; break;
+    case 'thorns':      character.passives.thorns      = 0.15; break;
+    case 'mana_shield': character.passives.manaShield  = true; break;
+
+    case 'warrior_endure':
+      character.passives.defendReduction = 0.70;
+      break;
+    case 'warrior_execute_cd': {
+      const ex = character.abilities.find(a => a.id === 'execute');
+      if (ex) { ex.cooldown = Math.max(1, ex.cooldown - 1); ex.currentCooldown = 0; }
+      break;
+    }
+    case 'mage_arcane':
+      character.maxMp += 30;
+      character.mp = Math.min(character.maxMp, character.mp + 30);
+      character.passives.extraMpRegen = (character.passives.extraMpRegen || 0) + 3;
+      break;
+    case 'mage_overload': {
+      const fb = character.abilities.find(a => a.id === 'fireball');
+      if (fb) { fb.cooldown = Math.max(1, fb.cooldown - 1); fb.currentCooldown = 0; fb.damageMultiplier = (fb.damageMultiplier || 1.5) + 0.3; }
+      character.passives.spellDmgBonus = (character.passives.spellDmgBonus || 0) + 0.3;
+      break;
+    }
+    case 'rogue_poison':
+      character.passives.poisonStrength = 0.15;
+      break;
+    case 'rogue_shadow_cd': {
+      const ss = character.abilities.find(a => a.id === 'shadow_step');
+      if (ss) { ss.cooldown = 2; ss.currentCooldown = 0; }
+      break;
+    }
+    case 'cleric_aura':
+      character.passives.clericAuraBonus = 6;
+      break;
+    case 'cleric_rez_cost': {
+      const rez = character.abilities.find(a => a.id === 'resurrect');
+      if (rez) { rez.mpCost = 35; rez.cooldown = Math.max(1, rez.cooldown - 2); rez.currentCooldown = 0; }
+      break;
+    }
+    default:
+      return false;
+  }
+  return true;
 }
 
 function levelUp(character) {
   character.level += 1;
   character.expToNext = Math.floor(character.expToNext * 1.5);
 
+  // Smaller automatic growth — player's choice adds the significant bonus
   const cls = CLASSES[character.classId];
   const base = cls.baseStats;
+  character.maxHp = Math.floor(base.maxHp * (1 + 0.07 * (character.level - 1)));
+  character.hp    = Math.min(character.hp + Math.floor(base.maxHp * 0.07), character.maxHp);
+  character.maxMp = Math.floor(base.maxMp * (1 + 0.07 * (character.level - 1)));
+  character.mp    = Math.min(character.mp + Math.floor(base.maxMp * 0.15), character.maxMp);
+  character.attack  = Math.floor(base.attack  * (1 + 0.07 * (character.level - 1)));
+  character.defense = Math.floor(base.defense * (1 + 0.07 * (character.level - 1)));
 
-  character.maxHp = Math.floor(base.maxHp * (1 + 0.1 * (character.level - 1)));
-  character.hp = Math.min(character.hp + Math.floor(base.maxHp * 0.1), character.maxHp);
-  character.maxMp = Math.floor(base.maxMp * (1 + 0.1 * (character.level - 1)));
-  character.mp = Math.min(character.mp + Math.floor(base.maxMp * 0.2), character.maxMp);
-  character.attack = Math.floor(base.attack * (1 + 0.1 * (character.level - 1)));
-  character.defense = Math.floor(base.defense * (1 + 0.1 * (character.level - 1)));
+  // Generate 3 choices for player to pick
+  character.pendingLevelUp = { options: generateLevelUpOptions(character) };
 
   return character;
 }
 
-module.exports = { CLASSES, createCharacter, levelUp };
+module.exports = { CLASSES, createCharacter, levelUp, applyLevelUpOption, LEVEL_UP_OPTIONS };

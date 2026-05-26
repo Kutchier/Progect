@@ -931,6 +931,10 @@ socket.on('chat', (entry) => {
   appendChat(entry.sender, entry.msg);
 });
 
+socket.on('floor_complete', (summary) => {
+  showFloorSummary(summary);
+});
+
 // ─── Main Renderer ────────────────────────────────────────────────────────────
 function renderGameState() {
   if (!S.gameState) return;
@@ -1256,6 +1260,59 @@ function renderGame() {
     document.getElementById('enemies-area')?.classList.remove('combat-voting-blur');
     if (S.voteTimerInterval) { clearInterval(S.voteTimerInterval); S.voteTimerInterval = null; }
   }
+
+  renderLevelUpOverlay(state);
+}
+
+function renderLevelUpOverlay(state) {
+  const myPlayer = state.players.find(p => p.socketId === S.mySocketId);
+  const pending = myPlayer?.character?.pendingLevelUp;
+
+  let overlay = document.getElementById('levelup-overlay');
+
+  if (!pending) {
+    if (overlay) overlay.classList.add('hidden');
+    return;
+  }
+
+  // In combat: only show on own turn so others can watch the battle
+  const room = state.currentRoom;
+  const isCombat = room?.type === 'combat' || room?.type === 'boss';
+  if (isCombat && room?.currentTurnEntityId !== S.mySocketId) {
+    if (overlay) overlay.classList.add('hidden');
+    return;
+  }
+
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'levelup-overlay';
+    overlay.innerHTML = `
+      <div class="levelup-box">
+        <div class="levelup-title">✨ Повышение уровня!</div>
+        <div class="levelup-subtitle">Выберите улучшение:</div>
+        <div class="levelup-options" id="levelup-options"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+
+  overlay.classList.remove('hidden');
+
+  const optionsEl = document.getElementById('levelup-options');
+  optionsEl.innerHTML = pending.options.map(opt => `
+    <div class="levelup-card" data-id="${opt.id}">
+      <div class="levelup-card-icon">${opt.icon}</div>
+      <div class="levelup-card-name">${opt.name}</div>
+      <div class="levelup-card-desc">${opt.desc}</div>
+    </div>`).join('');
+
+  optionsEl.querySelectorAll('.levelup-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const optionId = card.dataset.id;
+      socket.emit('choose_level_up', { optionId }, (res) => {
+        if (res?.ok) overlay.classList.add('hidden');
+      });
+    });
+  });
 }
 
 function renderFloorIndicator(floor) {
@@ -1386,14 +1443,20 @@ function renderPlayerStats(players) {
 
 function renderEffectBadges(effects) {
   return effects.map(e => {
-    let label = e.type;
+    let label = '';
     let cls = 'buff';
-    if (e.type === 'poison') { label = `☠ Яд(${e.duration})`; cls = 'poison'; }
-    else if (e.type === 'stun') { label = `⚡ Оглушён(${e.duration})`; cls = 'stun'; }
-    else if (e.type === 'invulnerable') { label = `✦ Неуязв`; cls = 'invulnerable'; }
-    else if (e.type === 'attackBonus') { label = `↑Атк(${e.duration})`; cls = 'buff'; }
-    else if (e.type === 'defenseBonus') { label = `↑Защ(${e.duration})`; cls = 'buff'; }
-    else if (e.type === 'shadowStep') { label = `🌑 Тень`; cls = 'buff'; }
+    if (e.type === 'poison')        { label = `☠ Яд(${e.duration})`;       cls = 'poison'; }
+    else if (e.type === 'stun')     { label = `⚡ Оглушён(${e.duration})`; cls = 'stun'; }
+    else if (e.type === 'slow')     { label = `🐢 Замед(${e.duration})`;   cls = 'stun'; }
+    else if (e.type === 'invulnerable') { label = `✦ Неуязв`;             cls = 'invulnerable'; }
+    else if (e.type === 'absorbHit')    { label = `🛡 Щит(${e.duration})`; cls = 'buff'; }
+    else if (e.type === 'attackBonus')  { label = `↑Атк(${e.duration})`;  cls = 'buff'; }
+    else if (e.type === 'defenseBonus') { label = `↑Защ(${e.duration})`;  cls = 'buff'; }
+    else if (e.type === 'attackDebuff') { label = `↓Атк(${e.duration})`;  cls = 'debuff'; }
+    else if (e.type === 'defenseDebuff'){ label = `↓Защ(${e.duration})`;  cls = 'debuff'; }
+    else if (e.type === 'missChance')   { label = `👁 Слеп(${e.duration})`; cls = 'debuff'; }
+    else if (e.type === 'taunt')    { label = `⚔ Провок(${e.duration})`; cls = 'buff'; }
+    else if (e.type === 'shadowStep') { label = `🌑 Тень`;               cls = 'buff'; }
     else return '';
     return `<span class="effect-badge ${cls}">${label}</span>`;
   }).join('');
@@ -1841,7 +1904,24 @@ function updateBsEnemy(enemy) {
   const portEl = document.getElementById('bs-portrait');
   const effectsEl = document.getElementById('bs-effects-row');
 
-  if (nameEl) nameEl.textContent = enemy.name + (enemy.isBoss ? ' [БОСС]' : '');
+  if (nameEl) {
+    let nameText = enemy.name;
+    if (enemy.isBoss) nameText += ' [БОСС]';
+    if (enemy.phase2Active) nameText += ' ★ЯРОСТЬ★';
+    nameEl.textContent = nameText;
+    nameEl.style.color = enemy.phase2Active ? '#ff4444' : '';
+    if (enemy.description) nameEl.title = enemy.description;
+  }
+
+  // Show enemy description tooltip below name
+  let descEl = document.getElementById('bs-enemy-desc');
+  if (!descEl) {
+    descEl = document.createElement('div');
+    descEl.id = 'bs-enemy-desc';
+    descEl.style.cssText = 'font-size:10px;color:var(--text-dim);font-style:italic;text-align:center;padding:2px 4px;max-width:220px;margin:0 auto 2px;line-height:1.4;';
+    nameEl?.parentNode?.insertBefore(descEl, nameEl.nextSibling);
+  }
+  descEl.textContent = enemy.description || '';
   if (hpText) hpText.textContent = `${enemy.hp}/${enemy.maxHp}`;
 
   if (hpFill) {
@@ -1867,10 +1947,16 @@ function updateBsEnemy(enemy) {
 
   if (effectsEl) {
     effectsEl.innerHTML = (enemy.effects || []).map(ef => {
-      if (ef.type === 'poison') return `<span class="effect-badge poison">☠</span>`;
-      if (ef.type === 'stun') return `<span class="effect-badge stun">⚡</span>`;
+      if (ef.type === 'poison')        return `<span class="effect-badge poison">☠${ef.duration}</span>`;
+      if (ef.type === 'stun')          return `<span class="effect-badge stun">⚡${ef.duration}</span>`;
+      if (ef.type === 'slow')          return `<span class="effect-badge stun">🐢${ef.duration}</span>`;
+      if (ef.type === 'attackDebuff')  return `<span class="effect-badge debuff">↓Атк${ef.duration}</span>`;
+      if (ef.type === 'defenseDebuff') return `<span class="effect-badge debuff">↓Защ${ef.duration}</span>`;
       return '';
     }).join('');
+    if (enemy.phase2Active) {
+      effectsEl.innerHTML += `<span class="effect-badge phase2">⚡ФАЗА 2</span>`;
+    }
   }
 }
 
@@ -2061,12 +2147,34 @@ function renderRoomActions(room, state) {
     const TIER_CLS = { 1: 'tier-1', 2: 'tier-2', 3: 'tier-3' };
     const items = room.shopItems;
 
+    const myCharForShop = myPlayer?.character;
     const shopHtml = items.length > 0
       ? `<div class="shop-grid">${items.map(item => {
           const icon = ITEM_ICONS[item.iconId] || '';
           const canAfford = gold >= item.price;
           const typeLabel = TYPE_LABELS[item.type] || item.type;
           const tierCls = TIER_CLS[item.tier] || 'tier-1';
+
+          // Build stat comparison delta
+          const deltas = [];
+          if (myCharForShop) {
+            if (item.attackBonus) {
+              const cur = myCharForShop.attack;
+              deltas.push(`⚔ ${cur} → ${cur + item.attackBonus} <span style="color:var(--green)">(+${item.attackBonus})</span>`);
+            }
+            if (item.defenseBonus) {
+              const cur = myCharForShop.defense;
+              const sign = item.defenseBonus >= 0 ? '+' : '';
+              const col = item.defenseBonus >= 0 ? 'var(--green)' : 'var(--red-bright)';
+              deltas.push(`🛡 ${cur} → ${cur + item.defenseBonus} <span style="color:${col}">(${sign}${item.defenseBonus})</span>`);
+            }
+            if (item.maxHpBonus) {
+              const cur = myCharForShop.maxHp;
+              deltas.push(`❤ ${cur} → ${cur + item.maxHpBonus} <span style="color:var(--green)">(+${item.maxHpBonus})</span>`);
+            }
+          }
+          const deltaHtml = deltas.length ? `<div class="shop-item-delta">${deltas.join('  ')}</div>` : '';
+
           return `<div class="shop-item">
             <div class="shop-item-icon">${icon}</div>
             <div class="shop-item-body">
@@ -2076,6 +2184,7 @@ function renderRoomActions(room, state) {
               </div>
               <div class="shop-item-name">${item.name}</div>
               <div class="shop-item-desc">${item.desc}</div>
+              ${deltaHtml}
               <div class="shop-item-footer">
                 <span class="shop-price${canAfford ? '' : ' shop-price-poor'}">💰 ${item.price}</span>
                 <button class="btn-buy" onclick="buyItem('${item.id}')" ${canAfford ? '' : 'disabled'}>Купить</button>
@@ -2114,6 +2223,34 @@ function renderRoomActions(room, state) {
       </div>
     `;
   }
+
+  // Drop inventory panel: visible in non-merchant rooms when player has gear
+  const isMerchant = room.type === 'merchant';
+  const myChar = state.players.find(p => p.socketId === S.mySocketId)?.character;
+  if (!isMerchant && myChar?.isAlive && (myChar.inventory?.length || 0) > 0 && room.type !== 'combat' && room.type !== 'boss') {
+    area.classList.remove('hidden');
+    const TYPE_EMOJI = { weapon: '⚔', armor: '🛡', accessory: '💍', consumable: '🧪', artifact: '✨' };
+    area.innerHTML += `
+      <div class="drop-inventory-box">
+        <div class="panel-title" style="margin-bottom:6px;font-size:12px">🎒 Инвентарь (${myChar.inventory.length}/8)</div>
+        <div class="drop-list">${myChar.inventory.map(item => `
+          <div class="drop-item">
+            <span class="drop-item-icon">${TYPE_EMOJI[item.type] || '?'}</span>
+            <span class="drop-item-name">${item.name}</span>
+            <button class="btn-drop" onclick="dropItem('${item.id}')" title="Выбросить предмет">✕</button>
+          </div>`).join('')}
+        </div>
+      </div>
+    `;
+  }
+}
+
+function dropItem(itemId) {
+  socket.emit('drop_item', { itemId }, (res) => {
+    if (!res?.ok) {
+      showModal('Нельзя выбросить', res?.reason || 'Не удалось выбросить предмет.', [{ label: 'Закрыть', onclick: 'hideModal()' }]);
+    }
+  });
 }
 
 function submitRiddle() {
@@ -2177,10 +2314,13 @@ function renderActionsBar(state) {
   const isCombat = room?.type === 'combat' || room?.type === 'boss';
   const isMyTurn = !room?.currentTurnEntityId || room.currentTurnEntityId === S.mySocketId;
   const canAct = ch?.isAlive && !ch?.hasActed && state.phase === 'playing' && isCombat && isMyTurn;
+  const canItem = canUseItemNow();
 
   document.getElementById('action-buttons').querySelectorAll('.btn-action').forEach(btn => {
     btn.disabled = !canAct;
   });
+  const itemBtn = document.getElementById('btn-item');
+  if (itemBtn) itemBtn.disabled = !canItem;
 
   if (!canAct) {
     hideSubMenus();
@@ -2267,7 +2407,7 @@ document.getElementById('btn-defend').addEventListener('click', () => {
 });
 
 document.getElementById('btn-item').addEventListener('click', () => {
-  if (!canActNow()) return;
+  if (!canUseItemNow()) return;
   hideSubMenus();
   S.selectedAction = 'item';
   showItemSelect();
@@ -2644,6 +2784,20 @@ function canActNow() {
   const room = state.currentRoom;
   if (room?.type !== 'combat' && room?.type !== 'boss') return false;
   if (room.currentTurnEntityId && room.currentTurnEntityId !== S.mySocketId) return false;
+  return true;
+}
+
+function canUseItemNow() {
+  const state = S.gameState;
+  if (!state || state.phase !== 'playing') return false;
+  const ch = getMyChar();
+  if (!ch?.isAlive) return false;
+  const room = state.currentRoom;
+  const isCombat = room?.type === 'combat' || room?.type === 'boss';
+  if (isCombat) {
+    if (ch.hasActed) return false;
+    if (room.currentTurnEntityId && room.currentTurnEntityId !== S.mySocketId) return false;
+  }
   return true;
 }
 
@@ -3108,6 +3262,41 @@ function sendGameChat() {
 }
 
 // ─── End Screen ───────────────────────────────────────────────────────────────
+function showFloorSummary(summary) {
+  let overlay = document.getElementById('floor-summary-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'floor-summary-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);';
+    document.body.appendChild(overlay);
+  }
+
+  const playerRows = (summary.players || []).map(p => {
+    const hpPct = Math.round(p.hp / p.maxHp * 100);
+    const hpColor = hpPct > 60 ? 'var(--green)' : hpPct > 30 ? 'var(--gold)' : 'var(--red-bright)';
+    return `<div style="display:flex;gap:12px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.07)">
+      <span style="font-size:16px">${p.symbol}</span>
+      <span style="flex:1;color:${p.isAlive ? 'var(--text)' : 'var(--text-dim)'}">${p.name} <span style="color:var(--text-dim);font-size:11px">${p.className} Lv${p.level}</span></span>
+      <span style="color:${hpColor}">${p.hp}/${p.maxHp} HP</span>
+      <span style="color:var(--red-bright)">☠ ${p.kills}</span>
+      <span style="color:var(--gold)">💰 ${p.gold}</span>
+    </div>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div style="background:var(--bg-panel,#1a1a2e);border:1px solid var(--border,#333);border-radius:8px;padding:24px;max-width:480px;width:90%;font-family:monospace">
+      <div style="text-align:center;color:var(--gold,#d4a017);font-size:20px;margin-bottom:4px">★ ЭТАЖ ${summary.floorNumber} ПРОЙДЕН ★</div>
+      <div style="text-align:center;color:var(--text-dim);font-size:12px;margin-bottom:16px">Следующий этаж через несколько секунд...</div>
+      ${playerRows}
+    </div>
+  `;
+  overlay.style.display = 'flex';
+
+  setTimeout(() => {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }, 6500);
+}
+
 function renderEndScreen(won) {
   showScreen('screen-end');
   const state = S.gameState;
@@ -3116,13 +3305,27 @@ function renderEndScreen(won) {
   titleEl.textContent = won ? '⚔ ПОБЕДА ⚔' : '☠ ПОРАЖЕНИЕ ☠';
   titleEl.className = `end-title ${won ? 'victory' : 'defeat'}`;
 
+  const floorReached = state.floorNumber || 1;
   const statsEl = document.getElementById('end-stats');
+
   const lines = state.players.map(p => {
     const ch = p.character;
-    if (!ch) return `${p.name}: не участвовал`;
-    return `${ch.symbol} ${p.name} (${ch.className} Lv${ch.level}) — ${ch.gold} золота`;
+    if (!ch) return `<div class="end-player-row"><span>${p.name}: не участвовал</span></div>`;
+    const alive = ch.isAlive ? '' : ' <span style="color:var(--red-bright)">[☠]</span>';
+    return `<div class="end-player-row">
+      <div class="end-player-name">${ch.symbol} ${p.name}${alive} <span style="color:var(--text-dim);font-size:11px">${ch.className} Lv${ch.level}</span></div>
+      <div class="end-player-stats">
+        <span>💰 ${ch.gold}</span>
+        <span>☠ ${ch.kills || 0} убийств</span>
+        <span>💊 ${ch.potions} зелий</span>
+      </div>
+    </div>`;
   });
-  statsEl.innerHTML = lines.join('<br>');
+
+  statsEl.innerHTML = `
+    <div class="end-floor-line">Этаж: <strong>${floorReached}</strong> / 5</div>
+    ${lines.join('')}
+  `;
 }
 
 document.getElementById('btn-back-menu').addEventListener('click', () => {

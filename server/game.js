@@ -3,7 +3,7 @@
 const { v4: uuidv4 } = require('uuid');
 const { createCharacter } = require('./classes');
 const { generateFloor, getAvailableRooms, getPlayerScaling } = require('./mapGenerator');
-const { processPlayerAction, processEnemyTurns, awardExpAndLoot, resetActed, tickAllEffects, initializeCombatGrid, processMoveAction, processSingleEnemyTurn, getMoveRange, getAttackRange, gridDist, bfsReachable } = require('./combat');
+const { processPlayerAction, processEnemyTurns, awardExpAndLoot, resetActed, tickEffects, tickAllEffects, initializeCombatGrid, processMoveAction, processSingleEnemyTurn, getMoveRange, getAttackRange, gridDist, bfsReachable } = require('./combat');
 const { createMinigame, processMinigameAction, getMinigameClientState } = require('./minigames');
 const { getCurrentBonus, applyBonusToCharacter } = require('./bonuses');
 
@@ -150,6 +150,18 @@ class GameRoom {
       this.synergies.doubleMage = true;
       this.addLog('✦✦ Двойной маг! Маги получают +5 MP ежеход дополнительно.');
     }
+    if (classIds.includes('rogue') && classIds.includes('mage')) {
+      this.synergies.rogueMageShadow = true;
+      this.addLog('†✦ Синергия: Плут + Маг — "Теневая магия": криты плута восстанавливают 8 MP магу!');
+    }
+    if (classIds.includes('warrior') && classIds.includes('rogue')) {
+      this.synergies.warriorRogueIronShadow = true;
+      this.addLog('⚔† Синергия: Воин + Плут — "Железная тень": пока воин в провокации следующая атака плута — гарантированный крит!');
+    }
+    if (classIds.includes('mage') && classIds.includes('cleric')) {
+      this.synergies.mageClericHolyArcana = true;
+      this.addLog('✦✚ Синергия: Маг + Жрец — "Святая аркана": исцеление жреца снимает один дебафф с цели!');
+    }
 
     const playerCount = players.length;
     this.floor = generateFloor(this.floorNumber, playerCount);
@@ -200,8 +212,21 @@ class GameRoom {
 
     if (room.type === 'combat' || room.type === 'boss') {
       // Reset Rogue first-attack passive each combat
+      // Apply starting cooldowns to powerful abilities at start of each fight
+      const STARTING_COOLDOWNS = {
+        fireball: 1, chain_lightning: 1, whirlwind: 1,
+        backstab: 1, execute: 1, divine_shield: 1
+      };
       for (const p of Object.values(this.players)) {
-        if (p.character) p.character.firstAttackUsed = false;
+        if (p.character) {
+          p.character.firstAttackUsed = false;
+          for (const ability of (p.character.abilities || [])) {
+            const startCD = STARTING_COOLDOWNS[ability.id];
+            if (startCD !== undefined && ability.currentCooldown < startCD) {
+              ability.currentCooldown = startCD;
+            }
+          }
+        }
       }
       // Warrior+Cleric synergy: Warrior absorbs first hit of each combat
       if (this.synergies.warriorClericShield) {
@@ -279,20 +304,42 @@ class GameRoom {
       const conn = this.players[entity.id];
       const player = conn?.character;
       if (player) { player.hasMoved = false; player.hasActed = false; }
-      // Mana regen at start of player turn
+
+      // Poison damage at start of player turn, then tick all player effects
+      if (player?.isAlive) {
+        const poisonEff = player.effects?.find(e => e.type === 'poison');
+        if (poisonEff) {
+          const dmg = Math.floor(player.maxHp * poisonEff.value);
+          player.hp = Math.max(0, player.hp - dmg);
+          this.addLog(`☠ ${entity.name} получает ${dmg} урона от яда.`);
+          if (player.hp === 0) {
+            player.isAlive = false;
+            tickEffects(player);
+            this.addLog(`${entity.name} погибает от яда...`);
+            if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
+            this._advanceCombatTurn(room);
+            return;
+          }
+        }
+        tickEffects(player);
+      }
+
+      // Mana regen at start of player turn (base + passive extraMpRegen)
       if (player?.isAlive && player.maxMp > 0) {
-        player.mp = Math.min(player.maxMp, player.mp + 5);
+        const extraRegen = player.passives?.extraMpRegen || 0;
+        player.mp = Math.min(player.maxMp, player.mp + 5 + extraRegen);
       }
       // Double mage synergy: extra 5 MP regen for mages
       if (player?.isAlive && player.classId === 'mage' && this.synergies?.doubleMage) {
         player.mp = Math.min(player.maxMp, player.mp + 5);
       }
-      // Cleric passive aura: heal all alive allies for 3 HP at start of Cleric's turn
+      // Cleric passive aura: heal all alive allies (amount from passive or default 3)
       if (player?.classId === 'cleric' && player?.isAlive) {
         const allies = Object.values(this.players).filter(p => p.character?.isAlive && p.socketId !== entity.id);
         if (allies.length > 0) {
-          for (const ally of allies) ally.character.hp = Math.min(ally.character.maxHp, ally.character.hp + 3);
-          this.addLog(`✚ Аура исцеления: союзники восстанавливают 3 HP.`);
+          const auraHeal = player.passives?.clericAuraBonus || 3;
+          for (const ally of allies) ally.character.hp = Math.min(ally.character.maxHp, ally.character.hp + auraHeal);
+          this.addLog(`✚ Аура исцеления: союзники восстанавливают ${auraHeal} HP.`);
         }
       }
       // Tick cooldowns
@@ -370,6 +417,15 @@ class GameRoom {
         return;
       }
 
+      if (room.type === 'boss') {
+        const summary = this._buildFloorSummary();
+        if (this.io) this.io.to(this.id).emit('floor_complete', summary);
+        setTimeout(() => {
+          if (this.phase === GAME_PHASE.PLAYING) this.startVoting();
+        }, 7000);
+        return;
+      }
+
       this.startVoting();
       return;
     }
@@ -391,10 +447,6 @@ class GameRoom {
     const logs = processSingleEnemyTurn(gameState, enemy);
     this.syncFromGameState(gameState);
     for (const log of logs) this.addLog(log);
-
-    // Tick all effects after enemy turn
-    tickAllEffects(gameState);
-    this.syncFromGameState(gameState);
 
     if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
 
@@ -736,8 +788,21 @@ class GameRoom {
           const recipient = alivePlayers[this.lootRoundIndex % alivePlayers.length];
           this.lootRoundIndex++;
           if ((recipient.character.inventory?.length || 0) < MAX_INVENTORY) {
-            recipient.character.inventory.push(item);
-            this.addLog(`${recipient.name} получает: ${item.name}`);
+            const isGear = item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory' || item.type === 'artifact';
+            if (isGear) {
+              if (item.attackBonus)  recipient.character.attack  += item.attackBonus;
+              if (item.defenseBonus) recipient.character.defense  = Math.max(0, recipient.character.defense + item.defenseBonus);
+              if (item.maxHpBonus)  { recipient.character.maxHp += item.maxHpBonus; recipient.character.hp += item.maxHpBonus; }
+              const stats = [];
+              if (item.attackBonus)  stats.push(`⚔+${item.attackBonus}`);
+              if (item.defenseBonus) stats.push(`🛡${item.defenseBonus > 0 ? '+' : ''}${item.defenseBonus}`);
+              if (item.maxHpBonus)   stats.push(`❤+${item.maxHpBonus}`);
+              recipient.character.inventory.push({ ...item, statsApplied: true });
+              this.addLog(`${recipient.name} получает: ${item.name}${stats.length ? ` [${stats.join(' ')}]` : ''}`);
+            } else {
+              recipient.character.inventory.push(item);
+              this.addLog(`${recipient.name} получает: ${item.name}`);
+            }
             distributed = true;
             break;
           }
@@ -791,6 +856,37 @@ class GameRoom {
     }
 
     room.shopItems.splice(itemIdx, 1);
+    return { ok: true };
+  }
+
+  dropItem(socketId, itemId) {
+    const player = this.players[socketId];
+    if (!player?.character) return { ok: false, reason: 'Персонаж не найден.' };
+    if (!player.character.isAlive) return { ok: false, reason: 'Мёртвые не выбрасывают предметы.' };
+
+    const idx = player.character.inventory.findIndex(i => i.id === itemId);
+    if (idx === -1) return { ok: false, reason: 'Предмет не найден.' };
+
+    const item = player.character.inventory[idx];
+
+    if (item.type === 'weapon') {
+      const otherWeapons = player.character.inventory.filter((i, index) => i.type === 'weapon' && index !== idx);
+      if (otherWeapons.length === 0) {
+        return { ok: false, reason: 'Нельзя выбросить последнее оружие!' };
+      }
+    }
+
+    if (item.statsApplied) {
+      if (item.attackBonus)  player.character.attack   = Math.max(1, player.character.attack  - item.attackBonus);
+      if (item.defenseBonus) player.character.defense  = Math.max(0, player.character.defense - item.defenseBonus);
+      if (item.maxHpBonus) {
+        player.character.maxHp = Math.max(1, player.character.maxHp - item.maxHpBonus);
+        player.character.hp    = Math.min(player.character.hp, player.character.maxHp);
+      }
+    }
+
+    player.character.inventory.splice(idx, 1);
+    this.addLog(`${player.name} выбрасывает "${item.name}".`);
     return { ok: true };
   }
 
@@ -853,6 +949,24 @@ class GameRoom {
     const scaling = getPlayerScaling(activeCount);
     this.addLog(`⚔ Активных игроков: ${activeCount} | Режим: ${scaling.label} | ${scaling.minEnemies}-${scaling.maxEnemies} врагов в комнатах`);
     this.enterRoom(0);
+  }
+
+  _buildFloorSummary() {
+    const players = Object.values(this.players)
+      .filter(p => p.character)
+      .map(p => ({
+        name: p.name,
+        className: p.character.className,
+        symbol: p.character.symbol,
+        level: p.character.level,
+        hp: p.character.hp,
+        maxHp: p.character.maxHp,
+        kills: p.character.kills || 0,
+        gold: p.character.gold,
+        isAlive: p.character.isAlive
+      }));
+    const recentLogs = this.combatLog.slice(-5).map(e => e.msg);
+    return { floorNumber: this.floorNumber, players, recentLogs };
   }
 
   resetPlayerActions() {
@@ -928,6 +1042,8 @@ class GameRoom {
           maxMp: p.character.maxMp,
           attack: p.character.attack,
           defense: p.character.defense,
+          speed: p.character.speed || 0,
+          kills: p.character.kills || 0,
           gold: p.character.gold,
           potions: p.character.potions,
           isAlive: p.character.isAlive,
@@ -945,7 +1061,9 @@ class GameRoom {
           ultReady: p.character.ultReady || false,
           ultKillsNeeded: p.character.ultKillsNeeded || 5,
           ultName: p.character.ultName || '',
-          ultDescription: p.character.ultDescription || ''
+          ultDescription: p.character.ultDescription || '',
+          passives: p.character.passives || {},
+          pendingLevelUp: p.character.pendingLevelUp || null
         } : null
       })),
       currentRoom: room ? {
@@ -960,10 +1078,12 @@ class GameRoom {
           typeId: e.typeId,
           name: e.name,
           symbol: e.symbol,
+          description: e.description || '',
           hp: e.hp,
           maxHp: e.maxHp,
           isAlive: e.isAlive,
           isBoss: e.isBoss,
+          phase2Active: e.phase2Active || false,
           effects: e.effects,
           gridX: e.gridX,
           gridZ: e.gridZ,

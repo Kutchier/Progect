@@ -46,7 +46,7 @@ function getEffectiveStat(entity, stat) {
   return Math.max(0, value);
 }
 
-function applyDamage(target, damage) {
+function applyDamage(target, damage, attacker = null) {
   if (hasEffect(target, 'invulnerable')) return { finalDamage: 0, blocked: true };
   if (hasEffect(target, 'absorbHit')) {
     removeEffect(target, 'absorbHit');
@@ -54,8 +54,12 @@ function applyDamage(target, damage) {
   }
 
   let finalDamage = damage;
+
+  const defendReduction = (target.isDefending && target.passives?.defendReduction)
+    ? target.passives.defendReduction
+    : 0.5;
   if (target.isDefending) {
-    finalDamage = Math.floor(finalDamage * 0.5);
+    finalDamage = Math.floor(finalDamage * (1 - defendReduction));
   }
 
   // Warrior passive: -15% incoming damage when HP < 30%
@@ -63,8 +67,23 @@ function applyDamage(target, damage) {
     finalDamage = Math.floor(finalDamage * 0.85);
   }
 
+  // Mana Shield passive: absorb lethal hit by spending 30 MP (once per hit)
+  if (target.passives?.manaShield && target.hp > 0 && target.hp - finalDamage <= 0 && (target.mp || 0) >= 30) {
+    target.mp -= 30;
+    return { finalDamage: 0, blocked: true, manaShield: true };
+  }
+
   target.hp = Math.max(0, target.hp - finalDamage);
   if (target.hp === 0) target.isAlive = false;
+
+  // Thorns passive: reflect 15% damage back to attacker
+  if (finalDamage > 0 && target.passives?.thorns && attacker && attacker.isAlive) {
+    const reflect = Math.floor(finalDamage * target.passives.thorns);
+    if (reflect > 0) {
+      attacker.hp = Math.max(0, attacker.hp - reflect);
+      if (attacker.hp === 0) attacker.isAlive = false;
+    }
+  }
 
   return { finalDamage, blocked: false };
 }
@@ -112,11 +131,42 @@ function processPlayerAction(gameState, playerId, action) {
         }
       }
 
-      const { damage, isCrit } = calculateDamage(player, target, shadowMult, shadowCrit);
-      const { finalDamage } = applyDamage(target, damage);
+      // Warrior+Rogue synergy: while warrior has taunt, rogue's next attack is guaranteed crit
+      if (player.classId === 'rogue' && gameState.synergies?.warriorRogueIronShadow && !shadowCrit) {
+        const warrior = Object.values(gameState.players).find(p => p.classId === 'warrior' && p.isAlive);
+        if (warrior && hasEffect(warrior, 'taunt')) {
+          shadowCrit = true;
+          logs.push(`⚔ Железная тень: ${player.name} наносит удар из-за спины воина! [КРИТ]`);
+        }
+      }
 
-      const critText = isCrit ? ' [КРИТ!]' : '';
-      logs.push(`${player.name} атакует ${target.name} на ${finalDamage} урона${critText}.`);
+      const { damage, isCrit } = calculateDamage(player, target, shadowMult, shadowCrit);
+      const { finalDamage, manaShield } = applyDamage(target, damage, player);
+
+      if (manaShield) {
+        logs.push(`${player.name} атакует ${target.name}, но Маговый щит поглощает удар!`);
+      } else {
+        const critText = isCrit ? ' [КРИТ!]' : '';
+        logs.push(`${player.name} атакует ${target.name} на ${finalDamage} урона${critText}.`);
+
+        // Lifesteal passive
+        if (finalDamage > 0 && player.passives?.lifesteal) {
+          const heal = Math.floor(finalDamage * player.passives.lifesteal);
+          if (heal > 0) {
+            player.hp = Math.min(player.maxHp, player.hp + heal);
+            logs.push(`${player.name} похищает ${heal} HP.`);
+          }
+        }
+      }
+
+      // Rogue+Mage synergy: crits restore 8 MP to the mage
+      if (isCrit && finalDamage > 0 && gameState.synergies?.rogueMageShadow && player.classId === 'rogue') {
+        const mage = Object.values(gameState.players).find(p => p.classId === 'mage' && p.isAlive);
+        if (mage) {
+          mage.mp = Math.min(mage.maxMp, mage.mp + 8);
+          logs.push(`✦ Теневая магия: ${mage.name} восстанавливает 8 MP!`);
+        }
+      }
 
       if (!target.isAlive) {
         logs.push(`${target.name} повержен!`);
@@ -266,14 +316,30 @@ function useAbility(gameState, player, ability, targetId, targetCell) {
         if (ability.bonusVsUndead && target.isUndead) mult = ability.bonusVsUndead;
         if (ability.condition === 'target_hp_low' && target.hp / target.maxHp >= 0.25) mult = 1.0;
 
-        const { damage, isCrit } = calculateDamage(player, target, mult, ability.guaranteedCrit);
-        const { finalDamage } = applyDamage(target, damage);
+        // spellDmgBonus passive (Mage overload)
+        if (player.passives?.spellDmgBonus && ability.type === 'attack' && ability.rangeType === 'ranged') {
+          mult = mult * (1 + player.passives.spellDmgBonus);
+        }
 
-        const critText = isCrit ? ' [КРИТ!]' : '';
-        logs.push(`${player.name} использует ${ability.name} → ${target.name}: ${finalDamage} урона${critText}.`);
+        const { damage, isCrit } = calculateDamage(player, target, mult, ability.guaranteedCrit);
+        const { finalDamage, manaShield } = applyDamage(target, damage, player);
+
+        if (manaShield) {
+          logs.push(`${player.name} использует ${ability.name} → ${target.name}: Маговый щит поглощает удар!`);
+        } else {
+          const critText = isCrit ? ' [КРИТ!]' : '';
+          logs.push(`${player.name} использует ${ability.name} → ${target.name}: ${finalDamage} урона${critText}.`);
+
+          // Lifesteal on ability attacks
+          if (finalDamage > 0 && player.passives?.lifesteal) {
+            const heal = Math.floor(finalDamage * player.passives.lifesteal);
+            if (heal > 0) player.hp = Math.min(player.maxHp, player.hp + heal);
+          }
+        }
 
         if (ability.effect?.poison) {
-          addEffect(target, { type: 'poison', value: ability.effect.poison.damagePercent, duration: ability.effect.poison.duration });
+          const poisonVal = player.passives?.poisonStrength ?? ability.effect.poison.damagePercent;
+          addEffect(target, { type: 'poison', value: poisonVal, duration: ability.effect.poison.duration });
           logs.push(`${target.name} отравлен!`);
         }
         if (ability.effect?.stun) {
@@ -323,11 +389,21 @@ function useAbility(gameState, player, ability, targetId, targetCell) {
         ? getBonusMultiplier(player.activeBonus, { classId: player.classId, event: 'heal' })
         : 0;
 
+      const DEBUFF_TYPES = ['attackDebuff', 'defenseDebuff', 'slow', 'stun', 'missChance', 'poison'];
       for (const t of targets) {
         let healAmt = Math.floor(t.maxHp * (ability.healPercent || 0.3));
         if (healBonus > 0) healAmt = Math.floor(healAmt * (1 + healBonus));
         t.hp = Math.min(t.maxHp, t.hp + healAmt);
         logs.push(`${player.name} исцеляет ${t.name} на ${healAmt} HP. (${t.hp}/${t.maxHp})`);
+
+        // Mage+Cleric synergy: healing removes one debuff from target
+        if (gameState.synergies?.mageClericHolyArcana && player.classId === 'cleric' && t.effects?.length) {
+          const debuff = t.effects.find(e => DEBUFF_TYPES.includes(e.type));
+          if (debuff) {
+            t.effects = t.effects.filter(e => e !== debuff);
+            logs.push(`✚ Святая аркана: эффект [${debuff.type}] снят с ${t.name}!`);
+          }
+        }
       }
       break;
     }
@@ -520,6 +596,58 @@ function useItem(gameState, player, itemId, targetId) {
   const item = player.inventory[itemIdx];
 
   if (item.type === 'consumable') {
+    if (item.curesPoison) {
+      const target = alivePlayers.find(p => p.id === targetId) || player;
+      const hadPoison = target.effects?.some(e => e.type === 'poison');
+      target.effects = (target.effects || []).filter(e => e.type !== 'poison');
+      logs.push(hadPoison
+        ? `${player.name} использует ${item.name}. Яд снят с ${target.name}!`
+        : `${player.name} использует ${item.name}. ${target.name} не был отравлен.`);
+      player.inventory.splice(itemIdx, 1);
+      return logs;
+    }
+
+    if (item.effect === 'random_spell') {
+      const room = gameState.floor.rooms[gameState.floor.currentRoomIndex];
+      const aliveEnemies = room.enemies.filter(e => e.isAlive);
+      if (aliveEnemies.length === 0) {
+        logs.push(`${player.name} читает свиток — нет живых врагов!`);
+        player.inventory.splice(itemIdx, 1);
+        return logs;
+      }
+      const spellRoll = Math.floor(Math.random() * 4);
+      if (spellRoll === 0) {
+        // Firebolt — single target high damage
+        const t = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
+        const dmg = Math.max(1, Math.floor(player.attack * 2.0));
+        const { finalDamage } = applyDamage(t, dmg);
+        logs.push(`${player.name} читает свиток — Огненный разряд: ${t.name} получает ${finalDamage} урона!`);
+        if (!t.isAlive) logs.push(`${t.name} повержен!`);
+      } else if (spellRoll === 1) {
+        // Freeze — stun all enemies 1 turn
+        for (const e of aliveEnemies) addEffect(e, { type: 'stun', value: 1, duration: 1 });
+        logs.push(`${player.name} читает свиток — Морозная волна: все враги оглушены!`);
+      } else if (spellRoll === 2) {
+        // Chain lightning — hits all for moderate damage
+        logs.push(`${player.name} читает свиток — Цепная молния!`);
+        for (const e of aliveEnemies) {
+          const dmg = Math.max(1, Math.floor(player.attack * 1.2));
+          const { finalDamage } = applyDamage(e, dmg);
+          logs.push(`  → ${e.name}: ${finalDamage} урона.`);
+          if (!e.isAlive) logs.push(`${e.name} повержен!`);
+        }
+      } else {
+        // Curse all — attack debuff
+        for (const e of aliveEnemies) {
+          addEffect(e, { type: 'attackDebuff', value: 0.30, duration: 2 });
+          addEffect(e, { type: 'defenseDebuff', value: 0.30, duration: 2 });
+        }
+        logs.push(`${player.name} читает свиток — Массовое проклятие: все враги ослаблены на 2 хода!`);
+      }
+      player.inventory.splice(itemIdx, 1);
+      return logs;
+    }
+
     if (item.manaAmount) {
       const target = alivePlayers.find(p => p.id === targetId) || player;
       const before = target.mp;
@@ -714,6 +842,25 @@ function processEnemyTurns(gameState) {
         logs.push(`${enemy.name} атакует ${target.name} на ${finalDamage} урона.`);
         break;
       }
+      case 'stun_bash': { const { damage: d1, isCrit: c1 } = calculateDamage(enemy, target); const { finalDamage: fd1 } = applyDamage(target, d1); addEffect(target, { type: 'stun', value: 1, duration: 1 }); logs.push(`${enemy.name} оглушает ${target.name}: ${fd1} урона${c1 ? ' [КРИТ!]' : ''}! ${target.name} оглушён.`); if (!target.isAlive) logs.push(`${target.name} пал...`); break; }
+      case 'throw_trap': { const { damage: d2 } = calculateDamage(enemy, target, 1.2); const { finalDamage: fd2 } = applyDamage(target, d2); addEffect(target, { type: 'slow', value: 1, duration: 2 }); logs.push(`${enemy.name} бросает ловушку в ${target.name}: ${fd2} урона, замедление!`); if (!target.isAlive) logs.push(`${target.name} пал...`); break; }
+      case 'feral_bite': { const { damage: d3, isCrit: c3 } = calculateDamage(enemy, target, 1.8); const { finalDamage: fd3 } = applyDamage(target, d3); logs.push(`${enemy.name} яростно кусает ${target.name}: ${fd3} урона${c3 ? ' [КРИТ!]' : ''}!`); if (!target.isAlive) logs.push(`${target.name} пал...`); break; }
+      case 'howl': { addEffect(enemy, { type: 'attackBonus', value: 0.25, duration: 2 }); logs.push(`${enemy.name} воет на луну!`); const { damage: d4 } = calculateDamage(enemy, target); const { finalDamage: fd4 } = applyDamage(target, d4); logs.push(`${enemy.name} атакует ${target.name} на ${fd4} урона.`); if (!target.isAlive) logs.push(`${target.name} пал...`); break; }
+      case 'web_trap': { const { damage: d5 } = calculateDamage(enemy, target, 0.7); const { finalDamage: fd5 } = applyDamage(target, d5); addEffect(target, { type: 'slow', value: 1, duration: 2 }); logs.push(`${enemy.name} опутывает ${target.name} паутиной: ${fd5} урона, замедление!`); if (!target.isAlive) logs.push(`${target.name} пал...`); break; }
+      case 'shadow_bind': { const { damage: d6 } = calculateDamage(enemy, target, 0.8); const { finalDamage: fd6 } = applyDamage(target, d6); addEffect(target, { type: 'defenseDebuff', value: 0.25, duration: 2 }); addEffect(target, { type: 'attackDebuff', value: 0.15, duration: 2 }); logs.push(`${enemy.name} оплетает ${target.name} тьмой: ${fd6} урона, −25% защ, −15% атк.`); if (!target.isAlive) logs.push(`${target.name} пал...`); break; }
+      case 'drain': { const { damage: d7 } = calculateDamage(enemy, target, 1.3); const { finalDamage: fd7 } = applyDamage(target, d7); enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(fd7 * 0.6)); logs.push(`${enemy.name} высасывает жизнь из ${target.name}: ${fd7} урона.`); if (!target.isAlive) logs.push(`${target.name} пал...`); break; }
+      case 'wing_buffet': { logs.push(`${enemy.name} бьёт крыльями!`); for (const p of alivePlayers) { const { damage: d8 } = calculateDamage(enemy, p, 0.9); const { finalDamage: fd8 } = applyDamage(p, d8); if (Math.random() < 0.4) { addEffect(p, { type: 'stun', value: 1, duration: 1 }); logs.push(`  → ${p.name}: ${fd8} урона, оглушён!`); } else logs.push(`  → ${p.name}: ${fd8} урона.`); if (!p.isAlive) logs.push(`${p.name} пал...`); } break; }
+      case 'screech': { for (const p of alivePlayers) addEffect(p, { type: 'attackDebuff', value: 0.20, duration: 2 }); logs.push(`${enemy.name} кричит! Все: атака −20% на 2 хода.`); break; }
+      case 'death_bolt': { const { damage: d9, isCrit: c9 } = calculateDamage(enemy, target, 2.2); const { finalDamage: fd9 } = applyDamage(target, d9); logs.push(`${enemy.name} — смертоносный разряд: ${fd9} урона${c9 ? ' [КРИТ!]' : ''}!`); if (!target.isAlive) logs.push(`${target.name} пал...`); break; }
+      case 'raise_dead': { const dead = room?.enemies?.filter(e => !e.isAlive); if (dead?.length > 0) { const r = dead[0]; r.isAlive = true; r.hp = Math.floor(r.maxHp * 0.35); r.effects = []; logs.push(`☠ ${enemy.name} поднимает ${r.name}! (${r.hp} HP)`); } else { const { damage: d10 } = calculateDamage(enemy, target); const { finalDamage: fd10 } = applyDamage(target, d10); logs.push(`${enemy.name} атакует ${target.name} на ${fd10} урона.`); if (!target.isAlive) logs.push(`${target.name} пал...`); } break; }
+      case 'charm': { addEffect(target, { type: 'stun', value: 1, duration: 1 }); logs.push(`${enemy.name} очаровывает ${target.name}! Пропускает ход.`); break; }
+      case 'hellfire': { logs.push(`${enemy.name} — адское пламя!`); for (const p of alivePlayers) { const { damage: d11 } = calculateDamage(enemy, p, 1.3); const { finalDamage: fd11 } = applyDamage(p, d11); logs.push(`  → ${p.name}: ${fd11} урона.`); if (!p.isAlive) logs.push(`${p.name} пал...`); } break; }
+      case 'devour': { const { damage: d12 } = calculateDamage(enemy, target, 2.5); const { finalDamage: fd12 } = applyDamage(target, d12); enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(fd12 * 0.7)); logs.push(`${enemy.name} ПОЖИРАЕТ ${target.name}: ${fd12} урона!`); if (!target.isAlive) logs.push(`${target.name} пал...`); break; }
+      case 'chaos_bolt': { const rnd = alivePlayers[Math.floor(Math.random() * alivePlayers.length)]; const { damage: d13, isCrit: c13 } = calculateDamage(enemy, rnd, 2.8 + Math.random() * 1.4); const { finalDamage: fd13 } = applyDamage(rnd, d13); logs.push(`${enemy.name} — заряд хаоса в ${rnd.name}: ${fd13} урона${c13 ? ' [КРИТ!]' : ''}!`); if (!rnd.isAlive) logs.push(`${rnd.name} пал...`); break; }
+      case 'ice_breath': { logs.push(`${enemy.name} — ледяное дыхание!`); for (const p of alivePlayers) { const { damage: d14 } = calculateDamage(enemy, p, 1.2); const { finalDamage: fd14 } = applyDamage(p, d14); addEffect(p, { type: 'slow', value: 1, duration: 2 }); logs.push(`  → ${p.name}: ${fd14} урона, замедлен.`); if (!p.isAlive) logs.push(`${p.name} пал...`); } break; }
+      case 'poison_spray': { logs.push(`${enemy.name} распыляет яд!`); for (const p of alivePlayers) { addEffect(p, { type: 'poison', value: 0.06, duration: 3 }); logs.push(`  → ${p.name} отравлен на 3 хода.`); } break; }
+      case 'spawn_spiders': { logs.push(`${enemy.name} призывает паучье потомство!`); for (const p of alivePlayers) { const { damage: d15 } = calculateDamage(enemy, p, 0.5); const { finalDamage: fd15 } = applyDamage(p, d15); addEffect(p, { type: 'poison', value: 0.05, duration: 2 }); logs.push(`  → ${p.name}: ${fd15} урона + яд.`); if (!p.isAlive) logs.push(`${p.name} пал...`); } break; }
+      case 'curse': { addEffect(target, { type: 'attackDebuff', value: 0.30, duration: 2 }); addEffect(target, { type: 'defenseDebuff', value: 0.30, duration: 2 }); logs.push(`${enemy.name} проклинает ${target.name}! Атака и защита −30% на 2 хода.`); break; }
 
       default: {
         const { damage } = calculateDamage(enemy, target);
@@ -843,7 +990,8 @@ function resetActed(gameState) {
     player.hasActed = false;
     player.hasMoved = false;
     if (player.isAlive && player.maxMp > 0) {
-      player.mp = Math.min(player.maxMp, player.mp + 5);
+      const extraRegen = player.passives?.extraMpRegen || 0;
+      player.mp = Math.min(player.maxMp, player.mp + 5 + extraRegen);
     }
   }
   for (const ability of Object.values(gameState.players).flatMap(p => p.abilities)) {
@@ -1452,6 +1600,201 @@ function processSingleEnemyTurn(gameState, enemy) {
       logs.push(`${enemy.name} атакует ${target.name} на ${finalDamage} урона.`);
       break;
     }
+
+    // ── Newly implemented abilities ──────────────────────────────────────────
+
+    case 'stun_bash': {
+      const { damage, isCrit } = calculateDamage(enemy, target, 1.0);
+      const { finalDamage } = applyDamage(target, damage);
+      addEffect(target, { type: 'stun', value: 1, duration: 1 });
+      logs.push(`${enemy.name} оглушает ${target.name} ударом: ${finalDamage} урона${isCrit ? ' [КРИТ!]' : ''}! ${target.name} оглушён.`);
+      if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      break;
+    }
+
+    case 'throw_trap': {
+      const { damage } = calculateDamage(enemy, target, 1.2);
+      const { finalDamage } = applyDamage(target, damage);
+      addEffect(target, { type: 'slow', value: 1, duration: 2 });
+      logs.push(`${enemy.name} бросает ловушку в ${target.name}: ${finalDamage} урона, замедление на 2 хода!`);
+      if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      break;
+    }
+
+    case 'feral_bite': {
+      const { damage, isCrit } = calculateDamage(enemy, target, 1.8);
+      const { finalDamage } = applyDamage(target, damage);
+      logs.push(`${enemy.name} яростно кусает ${target.name}: ${finalDamage} урона${isCrit ? ' [КРИТ!]' : ''}!`);
+      if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      break;
+    }
+
+    case 'howl': {
+      addEffect(enemy, { type: 'attackBonus', value: 0.25, duration: 2 });
+      logs.push(`${enemy.name} воет на луну — атака усилена на 25% на 2 хода!`);
+      // Also make a normal attack this turn
+      const { damage } = calculateDamage(enemy, target);
+      const { finalDamage } = applyDamage(target, damage);
+      logs.push(`${enemy.name} атакует ${target.name} на ${finalDamage} урона.`);
+      if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      break;
+    }
+
+    case 'web_trap': {
+      const { damage } = calculateDamage(enemy, target, 0.7);
+      const { finalDamage } = applyDamage(target, damage);
+      addEffect(target, { type: 'slow', value: 1, duration: 2 });
+      logs.push(`${enemy.name} опутывает ${target.name} паутиной: ${finalDamage} урона, движение заблокировано на 2 хода!`);
+      if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      break;
+    }
+
+    case 'shadow_bind': {
+      const { damage } = calculateDamage(enemy, target, 0.8);
+      const { finalDamage } = applyDamage(target, damage);
+      addEffect(target, { type: 'defenseDebuff', value: 0.25, duration: 2 });
+      addEffect(target, { type: 'attackDebuff', value: 0.15, duration: 2 });
+      logs.push(`${enemy.name} оплетает ${target.name} тьмой: ${finalDamage} урона. Защита −25%, атака −15% на 2 хода.`);
+      if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      break;
+    }
+
+    case 'drain': {
+      const { damage } = calculateDamage(enemy, target, 1.3);
+      const { finalDamage } = applyDamage(target, damage);
+      enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(finalDamage * 0.6));
+      logs.push(`${enemy.name} высасывает жизненную силу из ${target.name}: ${finalDamage} урона. Враг восстанавливает HP!`);
+      if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      break;
+    }
+
+    case 'wing_buffet': {
+      logs.push(`${enemy.name} бьёт крыльями!`);
+      for (const p of alivePlayers) {
+        const { damage } = calculateDamage(enemy, p, 0.9);
+        const { finalDamage } = applyDamage(p, damage);
+        if (Math.random() < 0.40) {
+          addEffect(p, { type: 'stun', value: 1, duration: 1 });
+          logs.push(`  → ${p.name}: ${finalDamage} урона, оглушён!`);
+        } else {
+          logs.push(`  → ${p.name}: ${finalDamage} урона.`);
+        }
+        if (!p.isAlive) logs.push(`${p.name} пал в бою...`);
+      }
+      break;
+    }
+
+    case 'screech': {
+      logs.push(`${enemy.name} издаёт пронзительный крик!`);
+      for (const p of alivePlayers) {
+        addEffect(p, { type: 'attackDebuff', value: 0.20, duration: 2 });
+      }
+      logs.push(`Все союзники подавлены — атака снижена на 20% на 2 хода!`);
+      break;
+    }
+
+    case 'death_bolt': {
+      const { damage, isCrit } = calculateDamage(enemy, target, 2.2);
+      const { finalDamage } = applyDamage(target, damage);
+      logs.push(`${enemy.name} выпускает смертоносный разряд в ${target.name}: ${finalDamage} некро-урона${isCrit ? ' [КРИТ!]' : ''}!`);
+      if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      break;
+    }
+
+    case 'raise_dead': {
+      const deadEnemies = room.enemies.filter(e => !e.isAlive);
+      if (deadEnemies.length > 0) {
+        const revived = deadEnemies[Math.floor(Math.random() * deadEnemies.length)];
+        revived.isAlive = true;
+        revived.hp = Math.floor(revived.maxHp * 0.35);
+        revived.effects = [];
+        logs.push(`☠ ${enemy.name} поднимает из мёртвых ${revived.name}! (${revived.hp} HP)`);
+      } else {
+        // No dead to revive — do normal attack instead
+        const { damage } = calculateDamage(enemy, target);
+        const { finalDamage } = applyDamage(target, damage);
+        logs.push(`${enemy.name} атакует ${target.name} на ${finalDamage} урона.`);
+        if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      }
+      break;
+    }
+
+    case 'charm': {
+      addEffect(target, { type: 'stun', value: 1, duration: 1 });
+      logs.push(`${enemy.name} очаровывает ${target.name}! ${target.name} поддаётся иллюзии и пропускает следующий ход.`);
+      break;
+    }
+
+    case 'hellfire': {
+      logs.push(`${enemy.name} выпускает адское пламя!`);
+      for (const p of alivePlayers) {
+        const { damage } = calculateDamage(enemy, p, 1.3);
+        const { finalDamage } = applyDamage(p, damage);
+        logs.push(`  → ${p.name}: ${finalDamage} урона огнём!`);
+        if (!p.isAlive) logs.push(`${p.name} пал в бою...`);
+      }
+      break;
+    }
+
+    case 'devour': {
+      const { damage } = calculateDamage(enemy, target, 2.5);
+      const { finalDamage } = applyDamage(target, damage);
+      enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(finalDamage * 0.7));
+      logs.push(`${enemy.name} ПОЖИРАЕТ ${target.name}: ${finalDamage} урона! Враг восстанавливает силы.`);
+      if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      break;
+    }
+
+    case 'chaos_bolt': {
+      const randomTarget = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+      const mult = 2.8 + Math.random() * 1.4;
+      const { damage, isCrit } = calculateDamage(enemy, randomTarget, mult);
+      const { finalDamage } = applyDamage(randomTarget, damage);
+      logs.push(`${enemy.name} выпускает заряд хаоса в ${randomTarget.name}: ${finalDamage} урона${isCrit ? ' [КРИТ!]' : ''}!`);
+      if (!randomTarget.isAlive) logs.push(`${randomTarget.name} пал в бою...`);
+      break;
+    }
+
+    case 'ice_breath': {
+      logs.push(`${enemy.name} выдыхает ледяной холод!`);
+      for (const p of alivePlayers) {
+        const { damage } = calculateDamage(enemy, p, 1.2);
+        const { finalDamage } = applyDamage(p, damage);
+        addEffect(p, { type: 'slow', value: 1, duration: 2 });
+        logs.push(`  → ${p.name}: ${finalDamage} ледяного урона, замедлен на 2 хода.`);
+        if (!p.isAlive) logs.push(`${p.name} пал в бою...`);
+      }
+      break;
+    }
+
+    case 'poison_spray': {
+      logs.push(`${enemy.name} распыляет ядовитые споры!`);
+      for (const p of alivePlayers) {
+        addEffect(p, { type: 'poison', value: 0.06, duration: 3 });
+        logs.push(`  → ${p.name} отравлен на 3 хода.`);
+      }
+      break;
+    }
+
+    case 'spawn_spiders': {
+      logs.push(`${enemy.name} призывает паучье потомство!`);
+      for (const p of alivePlayers) {
+        const { damage } = calculateDamage(enemy, p, 0.5);
+        const { finalDamage } = applyDamage(p, damage);
+        addEffect(p, { type: 'poison', value: 0.05, duration: 2 });
+        logs.push(`  → ${p.name}: ${finalDamage} урона от паучьей стаи, отравлен на 2 хода.`);
+        if (!p.isAlive) logs.push(`${p.name} пал в бою...`);
+      }
+      break;
+    }
+
+    case 'curse': {
+      addEffect(target, { type: 'attackDebuff', value: 0.30, duration: 2 });
+      addEffect(target, { type: 'defenseDebuff', value: 0.30, duration: 2 });
+      logs.push(`${enemy.name} проклинает ${target.name}! Атака и защита снижены на 30% на 2 хода.`);
+      break;
+    }
+
     default: {
       const { damage } = calculateDamage(enemy, target);
       const { finalDamage } = applyDamage(target, damage);
@@ -1468,6 +1811,7 @@ module.exports = {
   processEnemyTurns,
   awardExpAndLoot,
   resetActed,
+  tickEffects,
   tickAllEffects,
   calculateDamage,
   applyDamage,

@@ -346,8 +346,8 @@ function getEnemiesForFloor(floor) {
 }
 
 function getBossForFloor(floor) {
-  if (floor <= 3) return 'spider_queen';
-  if (floor <= 6) return 'dragon_boss';
+  if (floor <= 2) return 'spider_queen';
+  if (floor <= 4) return 'dragon_boss';
   return 'chaos_lord';
 }
 

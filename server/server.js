@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const { GameRoom, GAME_PHASE } = require('./game');
 const { saveScore, getTopScores, savePlayerStats } = require('./database');
 const { initBonusSystem, getCurrentBonus } = require('./bonuses');
+const { applyLevelUpOption } = require('./classes');
 
 const app = express();
 const server = http.createServer(app);
@@ -232,8 +233,21 @@ io.on('connection', (socket) => {
       if ((player.character.inventory?.length || 0) >= MAX_INV) {
         return cb?.({ ok: false, reason: `Инвентарь заполнен! Максимум ${MAX_INV} предметов.` });
       }
-      player.character.inventory.push(item);
-      room.addLog(`${player.name} подбирает: ${item.name}`);
+      const isGear = item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory' || item.type === 'artifact';
+      if (isGear) {
+        if (item.attackBonus)  player.character.attack  += item.attackBonus;
+        if (item.defenseBonus) player.character.defense  = Math.max(0, player.character.defense + item.defenseBonus);
+        if (item.maxHpBonus)  { player.character.maxHp += item.maxHpBonus; player.character.hp += item.maxHpBonus; }
+        const stats = [];
+        if (item.attackBonus)  stats.push(`⚔+${item.attackBonus}`);
+        if (item.defenseBonus) stats.push(`🛡${item.defenseBonus > 0 ? '+' : ''}${item.defenseBonus}`);
+        if (item.maxHpBonus)   stats.push(`❤+${item.maxHpBonus}`);
+        player.character.inventory.push({ ...item, statsApplied: true });
+        room.addLog(`${player.name} подбирает: ${item.name}${stats.length ? ` [${stats.join(' ')}]` : ''}`);
+      } else {
+        player.character.inventory.push(item);
+        room.addLog(`${player.name} подбирает: ${item.name}`);
+      }
     }
 
     io.to(room.id).emit('room_update', room.getClientState());
@@ -258,6 +272,15 @@ io.on('connection', (socket) => {
     cb?.(result);
   });
 
+  socket.on('drop_item', ({ itemId }, cb) => {
+    const room = rooms.get(socket.data.roomId);
+    if (!room) return cb?.({ ok: false, reason: 'Комната не найдена.' });
+    if (room.phase !== GAME_PHASE.PLAYING) return cb?.({ ok: false, reason: 'Неверная фаза игры.' });
+    const result = room.dropItem(socket.id, itemId);
+    if (result.ok) io.to(room.id).emit('room_update', room.getClientState());
+    cb?.(result);
+  });
+
   socket.on('volunteer_door', (cb) => {
     const room = rooms.get(socket.data.roomId);
     if (!room) return cb?.({ ok: false, reason: 'Комната не найдена.' });
@@ -271,6 +294,28 @@ io.on('connection', (socket) => {
     if (!room) return cb?.({ ok: false });
     room.processDoorAction(socket.id, action);
     // room_update is emitted inside processDoorAction
+    cb?.({ ok: true });
+  });
+
+  socket.on('choose_level_up', ({ optionId }, cb) => {
+    const room = rooms.get(socket.data.roomId);
+    if (!room) return cb?.({ ok: false, reason: 'Комната не найдена.' });
+
+    const player = room.players[socket.id];
+    if (!player?.character) return cb?.({ ok: false, reason: 'Персонаж не найден.' });
+
+    const pending = player.character.pendingLevelUp;
+    if (!pending) return cb?.({ ok: false, reason: 'Нет ожидающего выбора уровня.' });
+
+    const validOption = pending.options.find(o => o.id === optionId);
+    if (!validOption) return cb?.({ ok: false, reason: 'Недопустимый выбор.' });
+
+    const applied = applyLevelUpOption(player.character, optionId);
+    if (!applied) return cb?.({ ok: false, reason: 'Не удалось применить.' });
+
+    player.character.pendingLevelUp = null;
+    room.addLog(`★ ${player.name} (ур. ${player.character.level}) выбирает: ${validOption.icon} ${validOption.name}`);
+    io.to(room.id).emit('room_update', room.getClientState());
     cb?.({ ok: true });
   });
 
