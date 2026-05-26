@@ -543,9 +543,9 @@ class GameRoom {
     this.doorChallenge.volunteerId = socketId;
     this.doorChallenge.minigame    = mg;
 
-    const nativeClass = { lockpick: 'Плут', battering_ram: 'Воин', arcane_sequence: 'Маг', holy_resonance: 'Жрец' };
-    const typeNames   = { lockpick: 'Взлом замка', battering_ram: 'Таран', arcane_sequence: 'Магическая печать', holy_resonance: 'Святой резонанс' };
-    const isNative    = player.character.classId === Object.keys({ rogue:'lockpick', warrior:'battering_ram', mage:'arcane_sequence', cleric:'holy_resonance' }).find(k => ({ rogue:'lockpick', warrior:'battering_ram', mage:'arcane_sequence', cleric:'holy_resonance' })[k] === mg.type);
+    const nativeClass = { lockpick: 'Плут', tower_stack: 'Воин', arcane_sequence: 'Маг', holy_resonance: 'Жрец' };
+    const typeNames   = { lockpick: 'Взлом замка', tower_stack: 'Таран', arcane_sequence: 'Магическая печать', holy_resonance: 'Святой резонанс' };
+    const isNative    = player.character.classId === Object.keys({ rogue:'lockpick', warrior:'tower_stack', mage:'arcane_sequence', cleric:'holy_resonance' }).find(k => ({ rogue:'lockpick', warrior:'tower_stack', mage:'arcane_sequence', cleric:'holy_resonance' })[k] === mg.type);
     const nativeTip   = isNative ? ' (родная стихия!)' : ` (нативно для: ${nativeClass[mg.type]})`;
 
     this.addLog(`${player.name} берётся за дело: ${typeNames[mg.type]}${nativeTip}`);

@@ -732,7 +732,7 @@ function hasEffect(entity, effectType) {
 function awardExpAndLoot(gameState, defeatedEnemies) {
   const logs = [];
   const alivePlayers = Object.values(gameState.players).filter(p => p.isAlive);
-  if (alivePlayers.length === 0) return logs;
+  if (alivePlayers.length === 0) return { logs, lootItems: [], goldPerPlayer: 0 };
 
   let totalExp = 0;
   let totalGold = 0;
