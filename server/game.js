@@ -867,16 +867,12 @@ class GameRoom {
           inventory: p.character.inventory,
           isAI: p.character.isAI,
           gridX: p.character.gridX,
-<<<<<<< HEAD
           gridZ: p.character.gridZ,
           ultKills: p.character.ultKills || 0,
           ultReady: p.character.ultReady || false,
           ultKillsNeeded: p.character.ultKillsNeeded || 5,
           ultName: p.character.ultName || '',
           ultDescription: p.character.ultDescription || ''
-=======
-          gridZ: p.character.gridZ
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
         } : null
       })),
       currentRoom: room ? {

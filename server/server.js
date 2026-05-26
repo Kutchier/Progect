@@ -37,11 +37,7 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 app.use(express.json());
 
 app.get('/api/scores', (req, res) => {
-<<<<<<< HEAD
   res.json(getTopScores(10));
-=======
-  res.json(getTopScores(20));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 });
 
 app.get('/api/bonus', (req, res) => {
