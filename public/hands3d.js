@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // ─── 3D First-Person Hands Renderer ─────────────────────────────────────────
 // Renders procedural low-poly Three.js hand/weapon models per player class.
@@ -45,19 +45,11 @@ window.Hands3D = (() => {
     const am = m(armorC), ac = m(accentC);
     g.add(bx(am, 0.76, 0.62, 0.56));                                  // palm
     for (let i = 0; i < 4; i++)
-<<<<<<< HEAD
       g.add(cy(am, 0.072, 0.078, 0.32, 8, -0.28 + i * 0.19, 0.43, 0.13)); // fingers
     g.add(bx(ac, 0.78, 0.07, 0.57, 0,  0.24, 0));                    // knuckle trim
     g.add(bx(am, 0.78, 0.34, 0.57, 0, -0.46, 0));                    // wrist plate
     g.add(bx(ac, 0.78, 0.06, 0.57, 0, -0.28, 0));                    // wrist trim
     g.add(cy(am, 0.34, 0.40, 1.55, 10,  0,   -1.22, 0));              // forearm
-=======
-      g.add(cy(am, 0.072, 0.078, 0.32, 4, -0.28 + i * 0.19, 0.43, 0.13)); // fingers
-    g.add(bx(ac, 0.78, 0.07, 0.57, 0,  0.24, 0));                    // knuckle trim
-    g.add(bx(am, 0.78, 0.34, 0.57, 0, -0.46, 0));                    // wrist plate
-    g.add(bx(ac, 0.78, 0.06, 0.57, 0, -0.28, 0));                    // wrist trim
-    g.add(cy(am, 0.34, 0.40, 1.55, 5,  0,   -1.22, 0));              // forearm
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     return g;
   }
 
@@ -66,15 +58,9 @@ window.Hands3D = (() => {
     const g = new THREE.Group();
     g.add(bx(m(skinC), 0.58, 0.56, 0.44));
     for (let i = 0; i < 4; i++)
-<<<<<<< HEAD
       g.add(cy(m(skinC), 0.058, 0.063, 0.27, 8, -0.20 + i * 0.14, 0.37, 0.13));
     g.add(cy(m(cuffC),  0.38, 0.38, 0.20, 10, 0, -0.38, 0));         // cuff ring
     g.add(cy(m(sleeveC), 0.30, 0.40, 1.30, 10, 0, -1.10, 0));        // sleeve
-=======
-      g.add(cy(m(skinC), 0.058, 0.063, 0.27, 4, -0.20 + i * 0.14, 0.37, 0.13));
-    g.add(cy(m(cuffC),  0.38, 0.38, 0.20, 5, 0, -0.38, 0));         // cuff ring
-    g.add(cy(m(sleeveC), 0.30, 0.40, 1.30, 5, 0, -1.10, 0));        // sleeve
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     return g;
   }
 
@@ -90,11 +76,7 @@ window.Hands3D = (() => {
     sword.add(bx(m(bladeC), 0.10, 1.88, 0.06, 0, 1.20, 0.09));
     sword.add(bx(m(0xb8c8e0), 0.04, 1.85, 0.03, 0.04, 1.20, 0.12));  // edge glint
     sword.add(bx(m(accentC), 0.60, 0.10, 0.12, 0, 0.26, 0.09));      // crossguard
-<<<<<<< HEAD
     sword.add(cy(m(0x3a2808), 0.07, 0.07, 0.55, 10, 0, -0.12, 0.09));  // grip
-=======
-    sword.add(cy(m(0x3a2808), 0.07, 0.07, 0.55, 5, 0, -0.12, 0.09));  // grip
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     sword.add(bx(m(accentC), 0.18, 0.18, 0.18, 0, -0.47, 0.09));     // pommel
     right.add(sword);
 
@@ -125,27 +107,16 @@ window.Hands3D = (() => {
     right.add(mkSleeveHand(skinC, sleeveC, cuffC));
 
     const staff = new THREE.Group();
-<<<<<<< HEAD
     staff.add(cy(m(0x6a5030), 0.058, 0.058, 2.25, 10, 0, 0.84, 0.08));
     staff.add(sp(m(0x001428, { emissive: 0x4488cc }), 0.22, 12, 0, 1.97, 0.08));
     staff.add(sp(m(0x4488cc, { emissive: 0x88ddff }), 0.12, 12, 0, 1.97, 0.08));  // inner glow
-=======
-    staff.add(cy(m(0x6a5030), 0.058, 0.058, 2.25, 5, 0, 0.84, 0.08));
-    staff.add(sp(m(0x001428, { emissive: 0x4488cc }), 0.22, 6, 0, 1.97, 0.08));
-    staff.add(sp(m(0x4488cc, { emissive: 0x88ddff }), 0.12, 6, 0, 1.97, 0.08));  // inner glow
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     right.add(staff);
 
     // Left: sleeve + channelling orb in palm
     const left = new THREE.Group();
     left.add(mkSleeveHand(skinC, sleeveC, cuffC));
-<<<<<<< HEAD
     left.add(sp(m(0x2244aa, { emissive: 0xaaccff, transparent: true, opacity: 0.68 }), 0.30, 14, 0, 0.56, 0.18));
     left.add(sp(m(0x001428, { emissive: 0x4488ff, transparent: true, opacity: 0.32 }), 0.50, 14, 0, 0.56, 0.18));
-=======
-    left.add(sp(m(0x2244aa, { emissive: 0xaaccff, transparent: true, opacity: 0.68 }), 0.30, 8, 0, 0.56, 0.18));
-    left.add(sp(m(0x001428, { emissive: 0x4488ff, transparent: true, opacity: 0.32 }), 0.50, 8, 0, 0.56, 0.18));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 
     return { right, left };
   }
@@ -159,11 +130,7 @@ window.Hands3D = (() => {
       g.add(bx(m(bladeC), 0.07, 1.28, 0.06, xOff, 0.78, 0.08));
       g.add(bx(m(0x8080b8), 0.03, 1.25, 0.03, xOff + 0.03, 0.78, 0.11));  // edge
       g.add(bx(m(cuffC), 0.40, 0.07, 0.09, xOff, 0.16, 0.08));           // guard
-<<<<<<< HEAD
       g.add(cy(m(0x1a1428), 0.058, 0.058, 0.38, 10, xOff, -0.10, 0.08));   // grip
-=======
-      g.add(cy(m(0x1a1428), 0.058, 0.058, 0.38, 5, xOff, -0.10, 0.08));   // grip
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       if (rz) g.rotation.z = rz;
       return g;
     };
@@ -188,31 +155,18 @@ window.Hands3D = (() => {
     right.add(mkGauntlet(armorC, accentC));
 
     const mace = new THREE.Group();
-<<<<<<< HEAD
     mace.add(cy(m(0x7a5828), 0.065, 0.065, 1.65, 10, 0, 0.78, 0.08));   // handle
     mace.add(bx(m(armorC), 0.46, 0.46, 0.46, 0, 1.63, 0.08));          // head
     mace.add(bx(m(accentC), 0.56, 0.10, 0.56, 0, 1.78, 0.08));         // top band
     mace.add(bx(m(accentC), 0.56, 0.10, 0.56, 0, 1.48, 0.08));         // bottom band
     mace.add(sp(m(0xffe060, { emissive: 0xcc9900 }), 0.18, 12, 0, 1.95, 0.08)); // gem
-=======
-    mace.add(cy(m(0x7a5828), 0.065, 0.065, 1.65, 5, 0, 0.78, 0.08));   // handle
-    mace.add(bx(m(armorC), 0.46, 0.46, 0.46, 0, 1.63, 0.08));          // head
-    mace.add(bx(m(accentC), 0.56, 0.10, 0.56, 0, 1.78, 0.08));         // top band
-    mace.add(bx(m(accentC), 0.56, 0.10, 0.56, 0, 1.48, 0.08));         // bottom band
-    mace.add(sp(m(0xffe060, { emissive: 0xcc9900 }), 0.18, 6, 0, 1.95, 0.08)); // gem
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     right.add(mace);
 
     // Left: gauntlet + divine aura
     const left = new THREE.Group();
     left.add(mkGauntlet(armorC, accentC));
-<<<<<<< HEAD
     left.add(sp(m(0xffeea0, { emissive: 0xddcc55, transparent: true, opacity: 0.58 }), 0.36, 14, 0, 0.52, 0.18));
     left.add(sp(m(0xffcc40, { emissive: 0xbb8800, transparent: true, opacity: 0.28 }), 0.58, 14, 0, 0.52, 0.18));
-=======
-    left.add(sp(m(0xffeea0, { emissive: 0xddcc55, transparent: true, opacity: 0.58 }), 0.36, 8, 0, 0.52, 0.18));
-    left.add(sp(m(0xffcc40, { emissive: 0xbb8800, transparent: true, opacity: 0.28 }), 0.58, 8, 0, 0.52, 0.18));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 
     return { right, left };
   }

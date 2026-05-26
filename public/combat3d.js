@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // ─── Isometric Tactical Combat Renderer ───────────────────────────────────────
 window.Combat3D = (() => {
@@ -27,15 +27,12 @@ window.Combat3D = (() => {
   let _abilityAimMode = null;           // { rangeType:'ranged-aoe'|'ranged-single', maxRange, aoeRadius }
   let hoveredCell    = null;
 
-<<<<<<< HEAD
   // ─── Orbit camera state ────────────────────────────────────────────────────
   let orbitActive = false, orbitLastX = 0, orbitLastY = 0;
   let orbitTheta = 0, orbitPhi = Math.atan2(10, 11);
   let orbitVTheta = 0, orbitVPhi = 0; // inertia velocities (rad/s)
   const ORBIT_R = Math.sqrt(221); // distance from (0,11,10) to origin
 
-=======
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
   const CELL = 1.0;
   const GRID_SIZE = 14;
 
@@ -222,33 +219,19 @@ window.Combat3D = (() => {
     switch(themeName) {
       case 'forest': {
         // Tree stump
-<<<<<<< HEAD
         group.add(cyl(0.22, 0.28, 0.6, 12, mat(0x3a2810), wx, 0.35, wz));
         group.add(cyl(0.28, 0.28, 0.08, 12, mat(0x4a3418), wx, 0.68, wz));
-=======
-        group.add(cyl(0.22, 0.28, 0.6, 8, mat(0x3a2810), wx, 0.35, wz));
-        group.add(cyl(0.28, 0.28, 0.08, 8, mat(0x4a3418), wx, 0.68, wz));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
         break;
       }
       case 'ice': {
         // Ice spike cluster
-<<<<<<< HEAD
         group.add(cone(0.15, 0.8, 8, mat(0x88aacc,0x224466), wx, 0.5, wz));
         group.add(cone(0.1, 0.55, 8, mat(0x8899bb,0x1a3355), wx+0.18, 0.38, wz-0.15));
-=======
-        group.add(cone(0.15, 0.8, 6, mat(0x88aacc,0x224466), wx, 0.5, wz));
-        group.add(cone(0.1, 0.55, 6, mat(0x8899bb,0x1a3355), wx+0.18, 0.38, wz-0.15));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
         break;
       }
       case 'lava': {
         // Lava rock
-<<<<<<< HEAD
         group.add(sph(0.28, 12, mat(0x2a1408,0x600800), wx, 0.32, wz));
-=======
-        group.add(sph(0.28, 7, mat(0x2a1408,0x600800), wx, 0.32, wz));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
         // Glowing crack on top
         group.add(box(0.08, 0.04, 0.28, mat(0xff4400,0xcc2200), wx, 0.56, wz));
         break;
@@ -274,11 +257,7 @@ window.Combat3D = (() => {
       }
       default: {
         // Stone pillar
-<<<<<<< HEAD
         group.add(cyl(0.22, 0.26, 0.9, 10, mObs, wx, 0.5, wz));
-=======
-        group.add(cyl(0.22, 0.26, 0.9, 6, mObs, wx, 0.5, wz));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
         group.add(box(0.52, 0.1, 0.52, mWTop, wx, 0.96, wz));
       }
     }
@@ -338,7 +317,6 @@ window.Combat3D = (() => {
 
     if (themeName === 'temple' || themeName === 'throne') {
       // Brazier on pedestal
-<<<<<<< HEAD
       g.add(cyl(0.06, 0.1, 0.5, 10, mat(0x484030), 0, 0.3, 0));
       g.add(cyl(0.18, 0.08, 0.18, 12, mat(0x484030), 0, 0.62, 0));
       g.add(sph(0.16, 12, mat(theme.torchColor, theme.torchColor, 0.85), 0, 0.8, 0));
@@ -355,24 +333,6 @@ window.Combat3D = (() => {
       // Standard wall torch
       g.add(cyl(0.05, 0.07, 0.4, 10, mWood, 0, 0.22, 0));
       g.add(sph(0.11, 12, mFire, 0, 0.52, 0));
-=======
-      g.add(cyl(0.06, 0.1, 0.5, 6, mat(0x484030), 0, 0.3, 0));
-      g.add(cyl(0.18, 0.08, 0.18, 8, mat(0x484030), 0, 0.62, 0));
-      g.add(sph(0.16, 7, mat(theme.torchColor, theme.torchColor, 0.85), 0, 0.8, 0));
-    } else if (themeName === 'workshop') {
-      // Standing lantern
-      g.add(cyl(0.04, 0.04, 0.7, 5, mat(0x303030), 0, 0.4, 0));
-      g.add(box(0.2, 0.24, 0.2, mat(0x282828), 0, 0.82, 0));
-      g.add(sph(0.1, 6, mat(theme.torchColor, theme.torchColor), 0, 0.82, 0));
-    } else if (themeName === 'forest') {
-      // Glowing mushroom cluster
-      g.add(cyl(0.04, 0.08, 0.3, 6, mat(0x2a3818), 0, 0.2, 0));
-      g.add(sph(0.14, 7, mat(theme.torchColor, theme.torchColor, 0.8), 0, 0.42, 0));
-    } else {
-      // Standard wall torch
-      g.add(cyl(0.05, 0.07, 0.4, 6, mWood, 0, 0.22, 0));
-      g.add(sph(0.11, 7, mFire, 0, 0.52, 0));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     }
 
     g.position.set(x, y, z);
@@ -389,15 +349,9 @@ window.Combat3D = (() => {
     const h = size * CELL / 2;
     // Barrels in corners
     [[-h+1.5, 0, -h+1.5], [h-1.5, 0, -h+1.5], [-h+1.5, 0, h-1.5]].forEach(([x,y,z]) => {
-<<<<<<< HEAD
       gridGroup.add(cyl(0.2, 0.22, 0.48, 12, mat(0x3a2510), x, 0.25, z));
       gridGroup.add(cyl(0.22, 0.22, 0.04, 12, mat(0x505050), x, 0.06, z));
       gridGroup.add(cyl(0.22, 0.22, 0.04, 12, mat(0x505050), x, 0.46, z));
-=======
-      gridGroup.add(cyl(0.2, 0.22, 0.48, 10, mat(0x3a2510), x, 0.25, z));
-      gridGroup.add(cyl(0.22, 0.22, 0.04, 10, mat(0x505050), x, 0.06, z));
-      gridGroup.add(cyl(0.22, 0.22, 0.04, 10, mat(0x505050), x, 0.46, z));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     });
     // Iron bars on far wall
     for (let i = -3; i <= 3; i++) {
@@ -408,11 +362,7 @@ window.Combat3D = (() => {
       const cx = (Math.random()-0.5) * (size-4);
       const cz = (Math.random()-0.5) * (size-4);
       gridGroup.add(box(0.04, 0.8, 0.04, mat(0x484040), cx, 2.6, cz));
-<<<<<<< HEAD
       gridGroup.add(sph(0.08, 12, mat(0x383030), cx, 2.15, cz));
-=======
-      gridGroup.add(sph(0.08, 6, mat(0x383030), cx, 2.15, cz));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     }
   }
 
@@ -423,11 +373,7 @@ window.Combat3D = (() => {
     gridGroup.add(box(0.8, 0.5, 0.08, mat(0x22202a,0x060408), 0, 0.35, -(h-0.36)));
     // Skull cluster
     [[-2,0,2],[2,0,-2],[0,0,3]].forEach(([x,y,z]) => {
-<<<<<<< HEAD
       gridGroup.add(sph(0.14, 12, mat(0x9a9880), x, 0.15, z));
-=======
-      gridGroup.add(sph(0.14, 6, mat(0x9a9880), x, 0.15, z));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       gridGroup.add(box(0.16, 0.1, 0.12, mat(0x9a9880), x, 0.06, z+0.08));
     });
     // Candle clusters
@@ -435,13 +381,8 @@ window.Combat3D = (() => {
       for (let i = 0; i < 5; i++) {
         const off = (i-2)*0.15;
         const h2 = 0.08 + Math.random()*0.22;
-<<<<<<< HEAD
         gridGroup.add(cyl(0.04, 0.04, h2, 8, mat(0xddddcc), x+off, h2/2, z+off*0.5));
         gridGroup.add(sph(0.05, 8, mat(0xff8800,0xcc4400,0.8), x+off, h2+0.05, z+off*0.5));
-=======
-        gridGroup.add(cyl(0.04, 0.04, h2, 5, mat(0xddddcc), x+off, h2/2, z+off*0.5));
-        gridGroup.add(sph(0.05, 5, mat(0xff8800,0xcc4400,0.8), x+off, h2+0.05, z+off*0.5));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       }
     });
     // Purple mist PointLight
@@ -454,7 +395,6 @@ window.Combat3D = (() => {
     const h = size * CELL / 2;
     // Large tree trunks at corners
     [[-h+1.5,-h+1.5],[h-1.5,-h+1.5],[-h+1.5,h-1.5],[h-1.5,h-1.5]].forEach(([x,z]) => {
-<<<<<<< HEAD
       gridGroup.add(cyl(0.3, 0.38, 2.8, 12, mat(0x3a2810), x, 1.5, z));
       // Foliage
       gridGroup.add(sph(0.7, 12, mat(0x1a3a0e,0x0a1808), x, 3.0, z));
@@ -465,18 +405,6 @@ window.Combat3D = (() => {
       const stem = cyl(0.06, 0.08, 0.28, 10, mat(0xccbbaa), x, 0.15, z);
       gridGroup.add(stem);
       gridGroup.add(cone(0.22, 0.2, 10, mat(0xcc2200,0x660000), x, 0.42, z));
-=======
-      gridGroup.add(cyl(0.3, 0.38, 2.8, 8, mat(0x3a2810), x, 1.5, z));
-      // Foliage
-      gridGroup.add(sph(0.7, 7, mat(0x1a3a0e,0x0a1808), x, 3.0, z));
-      gridGroup.add(sph(0.5, 7, mat(0x224010,0x0a1808), x+0.2, 2.6, z-0.2));
-    });
-    // Mushrooms scattered
-    [[1,2],[-2,1],[3,-3],[-1,-2]].forEach(([x,z]) => {
-      const stem = cyl(0.06, 0.08, 0.28, 6, mat(0xccbbaa), x, 0.15, z);
-      gridGroup.add(stem);
-      gridGroup.add(cone(0.22, 0.2, 8, mat(0xcc2200,0x660000), x, 0.42, z));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     });
     // Mossy floor patches
     [[-1,0],[2,-1],[0,2]].forEach(([x,z]) => {
@@ -494,7 +422,6 @@ window.Combat3D = (() => {
     const h = size * CELL / 2;
     // Large ice stalactites from ceiling
     [[-3,0,-3],[3,0,2],[-2,0,3],[2,0,-2]].forEach(([x,y,z]) => {
-<<<<<<< HEAD
       gridGroup.add(cone(0.18, 1.4, 8, mat(0x88aacc,0x224488,0.85), x, 2.8-0.7, z));
       gridGroup.add(cone(0.12, 0.9, 8, mat(0x99bbdd,0x223355,0.8), x+0.3, 2.8-0.45, z-0.2));
     });
@@ -506,19 +433,6 @@ window.Combat3D = (() => {
     // Frozen figure
     gridGroup.add(box(0.36, 0.9, 0.3, mat(0x88aacc,0x224488,0.7), -h+2, 0.5, 0));
     gridGroup.add(sph(0.18, 12, mat(0x88aacc,0x224488,0.7), -h+2, 1.08, 0));
-=======
-      gridGroup.add(cone(0.18, 1.4, 6, mat(0x88aacc,0x224488,0.85), x, 2.8-0.7, z));
-      gridGroup.add(cone(0.12, 0.9, 6, mat(0x99bbdd,0x223355,0.8), x+0.3, 2.8-0.45, z-0.2));
-    });
-    // Ice formations on floor
-    [[-2,0,0],[2,0,1],[0,0,-2]].forEach(([x,y,z]) => {
-      gridGroup.add(cone(0.2, 0.7, 6, mat(0x88aacc,0x224466,0.9), x, 0.4, z));
-      gridGroup.add(cone(0.13, 0.45, 6, mat(0x88aacc,0x224466,0.9), x+0.22, 0.25, z+0.18));
-    });
-    // Frozen figure
-    gridGroup.add(box(0.36, 0.9, 0.3, mat(0x88aacc,0x224488,0.7), -h+2, 0.5, 0));
-    gridGroup.add(sph(0.18, 7, mat(0x88aacc,0x224488,0.7), -h+2, 1.08, 0));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     // Blue ambient glow
     const iceGlow = new THREE.PointLight(0x44aaff, 1.44, 12);
     iceGlow.position.set(0, 0.5, 0);
@@ -538,13 +452,8 @@ window.Combat3D = (() => {
     });
     // Lava vents (pillars with glow top)
     [[-h+2, 0, h-2],[h-2, 0, -h+2]].forEach(([x,y,z]) => {
-<<<<<<< HEAD
       gridGroup.add(cyl(0.25, 0.3, 0.5, 12, mat(0x1a0a04), x, 0.3, z));
       gridGroup.add(sph(0.2, 12, mat(0xff6600,0xff2200,0.9), x, 0.65, z));
-=======
-      gridGroup.add(cyl(0.25, 0.3, 0.5, 8, mat(0x1a0a04), x, 0.3, z));
-      gridGroup.add(sph(0.2, 8, mat(0xff6600,0xff2200,0.9), x, 0.65, z));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       const vL = new THREE.PointLight(0xff4400, 1.8, 5);
       vL.position.set(x, 0.8, z);
       lightGroup.add(vL);
@@ -580,11 +489,7 @@ window.Combat3D = (() => {
     gridGroup.add(box(0.4, 0.03, 0.5, mat(0xd4c8a8), 0, 0.59, 0));
     // Candles on table
     [[-0.5,0,0.2],[0.5,0,0.2]].forEach(([x,y,z]) => {
-<<<<<<< HEAD
       gridGroup.add(cyl(0.04, 0.04, 0.22, 8, mat(0xddddcc), x, 0.62, z));
-=======
-      gridGroup.add(cyl(0.04, 0.04, 0.22, 5, mat(0xddddcc), x, 0.62, z));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       gridGroup.add(sph(0.05, 5, mat(0xff8800,0xcc4400,0.8), x, 0.75, z));
     });
     // Warm light over table
@@ -599,7 +504,6 @@ window.Combat3D = (() => {
     gridGroup.add(box(1.4, 0.04, size*CELL-2, mat(0x5a0808), 0, 0.12, 0));
     // Throne at far end
     const tx = 0, tz = -h+1.8;
-<<<<<<< HEAD
     gridGroup.add(box(1.1, 1.6, 0.6, mat(0x2a1808), tx, 0.9, tz));         // back
     gridGroup.add(box(1.1, 0.14, 0.8, mat(0x2a1808), tx, 0.42, tz+0.15)); // seat
     gridGroup.add(box(0.14, 1.0, 0.6, mat(0x2a1808), tx-0.48, 0.64, tz));  // arm L
@@ -637,32 +541,14 @@ window.Combat3D = (() => {
       gridGroup.add(box(0.62, 0.06, 0.62, mat(0x302010,0x180a08), x, 2.54, z)); // capital trim
     });
 
-=======
-    gridGroup.add(box(1.1, 1.6, 0.6, mat(0x2a1808), tx, 0.9, tz));   // back
-    gridGroup.add(box(1.1, 0.14, 0.8, mat(0x2a1808), tx, 0.42, tz+0.15)); // seat
-    gridGroup.add(box(0.14, 1.0, 0.6, mat(0x2a1808), tx-0.48, 0.64, tz)); // arm L
-    gridGroup.add(box(0.14, 1.0, 0.6, mat(0x2a1808), tx+0.48, 0.64, tz)); // arm R
-    // Gold trim on throne
-    gridGroup.add(box(1.12, 0.08, 0.62, mat(0xaa8800,0x664400), tx, 1.72, tz));
-    // Columns
-    [[-3.5, 0, -4], [-3.5, 0, 0], [-3.5, 0, 4],
-     [ 3.5, 0, -4], [ 3.5, 0, 0], [ 3.5, 0, 4]].forEach(([x,y,z]) => {
-      gridGroup.add(cyl(0.2, 0.25, 2.5, 8, mat(0x1a1010), x, 1.3, z));
-      gridGroup.add(box(0.58, 0.12, 0.58, mat(0x221818), x, 2.6, z));
-      gridGroup.add(box(0.58, 0.12, 0.58, mat(0x221818), x, 0.06, z));
-    });
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     // Red spotlight on throne
     const throneLight = new THREE.PointLight(0xff2200, 1.44, 6);
     throneLight.position.set(tx, 2.0, tz);
     lightGroup.add(throneLight);
-<<<<<<< HEAD
     // Dark red ambient fill
     const atmLight = new THREE.PointLight(0x330000, 0.9, 14);
     atmLight.position.set(0, 1.5, 0);
     lightGroup.add(atmLight);
-=======
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
   }
 
   function buildSewerProps(size, theme) {
@@ -671,15 +557,9 @@ window.Combat3D = (() => {
     gridGroup.add(box(size*CELL-2, 0.04, 0.7, mat(0x0a1208,0x040808), 0, 0.11, 0));
     // Pipes on walls
     [[-h+0.3, 0, -2],[-h+0.3, 0, 2],[h-0.3, 0, -2],[h-0.3, 0, 2]].forEach(([x,y,z]) => {
-<<<<<<< HEAD
       gridGroup.add(cyl(0.1, 0.1, 2.4, 12, mat(0x303830), x, 0.8, z));
       gridGroup.add(cyl(0.13, 0.13, 0.1, 12, mat(0x282e28), x, 0.3, z));
       gridGroup.add(cyl(0.13, 0.13, 0.1, 12, mat(0x282e28), x, 1.3, z));
-=======
-      gridGroup.add(cyl(0.1, 0.1, 2.4, 8, mat(0x303830), x, 0.8, z));
-      gridGroup.add(cyl(0.13, 0.13, 0.1, 8, mat(0x282e28), x, 0.3, z));
-      gridGroup.add(cyl(0.13, 0.13, 0.1, 8, mat(0x282e28), x, 1.3, z));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     });
     // Slime puddles
     [[-2,0,2],[1,0,-1],[-1,0,-3],[3,0,1]].forEach(([x,y,z]) => {
@@ -707,26 +587,16 @@ window.Combat3D = (() => {
     gridGroup.add(box(1.62, 0.3, 0.04, mat(0x2a2820,0x060604), 0, 0.23, 0.52));
     // Braziers flanking altar
     [[-1.4, 0, 0], [1.4, 0, 0]].forEach(([x,y,z]) => {
-<<<<<<< HEAD
       gridGroup.add(cyl(0.08, 0.12, 0.6, 10, mat(0x484030), x, 0.35, z));
       gridGroup.add(cyl(0.2, 0.1, 0.2, 12, mat(0x484030), x, 0.72, z));
       gridGroup.add(sph(0.16, 12, mat(0xffee88,0xddaa22,0.9), x, 0.88, z));
-=======
-      gridGroup.add(cyl(0.08, 0.12, 0.6, 6, mat(0x484030), x, 0.35, z));
-      gridGroup.add(cyl(0.2, 0.1, 0.2, 8, mat(0x484030), x, 0.72, z));
-      gridGroup.add(sph(0.16, 8, mat(0xffee88,0xddaa22,0.9), x, 0.88, z));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       const bL = new THREE.PointLight(0xffee88, 1.8, 5);
       bL.position.set(x, 1.0, z);
       lightGroup.add(bL);
     });
     // Stone columns with gold caps
     [[-4,0,-4],[-4,0,4],[4,0,-4],[4,0,4]].forEach(([x,y,z]) => {
-<<<<<<< HEAD
       gridGroup.add(cyl(0.28, 0.32, 2.8, 14, mat(0x201e18), x, 1.5, z));
-=======
-      gridGroup.add(cyl(0.28, 0.32, 2.8, 10, mat(0x201e18), x, 1.5, z));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       gridGroup.add(box(0.72, 0.14, 0.72, mat(0x383424), x, 2.92, z));
       gridGroup.add(box(0.6, 0.14, 0.6, mat(0x484232,0x221e10), x, 0.06, z));
     });
@@ -743,13 +613,8 @@ window.Combat3D = (() => {
     gridGroup.add(box(1.4, 0.7, 1.0, mat(0x181418), fx, 0.4, fz));
     gridGroup.add(box(1.2, 0.08, 0.8, mat(0x282228), fx, 0.78, fz));
     // Forge fire
-<<<<<<< HEAD
     gridGroup.add(sph(0.22, 12, mat(0xff6600,0xff3300,0.9), fx, 0.95, fz));
     gridGroup.add(sph(0.14, 12, mat(0xffcc00,0xff6600,0.85), fx, 1.08, fz));
-=======
-    gridGroup.add(sph(0.22, 8, mat(0xff6600,0xff3300,0.9), fx, 0.95, fz));
-    gridGroup.add(sph(0.14, 7, mat(0xffcc00,0xff6600,0.85), fx, 1.08, fz));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     const forgeL = new THREE.PointLight(0xff6600, 2.52, 7);
     forgeL.position.set(fx, 1.2, fz);
     lightGroup.add(forgeL);
@@ -760,11 +625,7 @@ window.Combat3D = (() => {
     });
     // Gear/cog decorations on wall
     [[-2, 0, -h+0.3],[2, 0, -h+0.3]].forEach(([x,y,z]) => {
-<<<<<<< HEAD
       const gearGeo = new THREE.TorusGeometry(0.35, 0.08, 10, 16);
-=======
-      const gearGeo = new THREE.TorusGeometry(0.35, 0.08, 6, 10);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       const gear = new THREE.Mesh(gearGeo, mat(0x303838,0x101010));
       gear.position.set(x, 1.2, z);
       gridGroup.add(gear);
@@ -854,11 +715,7 @@ window.Combat3D = (() => {
     bodyGrp.add(box(0.56,0.52,0.38, mB, 0,0.72,0));
     bodyGrp.add(box(0.2,0.46,0.2, mB, -0.38,0.66,0));
     bodyGrp.add(box(0.2,0.46,0.2, mB,  0.38,0.66,0));
-<<<<<<< HEAD
     bodyGrp.add(sph(0.23,12, mS, 0,1.12,0));
-=======
-    bodyGrp.add(sph(0.23,7, mS, 0,1.12,0));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 
     if (classId === 'warrior') {
       bodyGrp.add(box(0.3,0.3,0.09, mA, 0,1.12,0.2));
@@ -866,63 +723,37 @@ window.Combat3D = (() => {
       bodyGrp.add(box(0.22,0.06,0.06, mW, 0.56,1.06,0));
     } else if (classId === 'mage') {
       bodyGrp.add(box(0.28,0.15,0.28, mB, 0,1.28,0));
-<<<<<<< HEAD
       bodyGrp.add(cyl(0.04,0.15,0.38,10,mB,0,1.54,0));
       bodyGrp.add(box(0.04,0.72,0.04, mW, 0.46,0.88,0));
       bodyGrp.add(sph(0.1,12,mat(0x4488ff,0x2255cc),0.46,1.28,0));
-=======
-      bodyGrp.add(cyl(0.04,0.15,0.38,6,mB,0,1.54,0));
-      bodyGrp.add(box(0.04,0.72,0.04, mW, 0.46,0.88,0));
-      bodyGrp.add(sph(0.1,7,mat(0x4488ff,0x2255cc),0.46,1.28,0));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     } else if (classId === 'rogue') {
       bodyGrp.add(box(0.3,0.22,0.1,mat(0x181820),0,1.12,0.16));
       bodyGrp.add(box(0.03,0.32,0.03,mW,-0.52,0.66,0.1));
       bodyGrp.add(box(0.03,0.32,0.03,mW, 0.52,0.66,0.1));
     } else if (classId === 'cleric') {
-<<<<<<< HEAD
       const halo = new THREE.Mesh(new THREE.TorusGeometry(0.28,0.022,10,24), mat(0xddaa00,0x886600));
       halo.position.set(0,1.48,0); halo.rotation.x = Math.PI/2;
       bodyGrp.add(halo);
       bodyGrp.add(cyl(0.04,0.04,0.58,10,mW,0.5,0.88,0));
       bodyGrp.add(sph(0.11,12,mat(0x888898,0x202030),0.5,1.22,0));
-=======
-      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.28,0.022,6,18), mat(0xddaa00,0x886600));
-      halo.position.set(0,1.48,0); halo.rotation.x = Math.PI/2;
-      bodyGrp.add(halo);
-      bodyGrp.add(cyl(0.04,0.04,0.58,6,mW,0.5,0.88,0));
-      bodyGrp.add(sph(0.11,7,mat(0x888898,0x202030),0.5,1.22,0));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     }
 
     g.add(bodyGrp);
 
     // Turn ring
-<<<<<<< HEAD
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.4,0.032,10,24), mat(C.turnGold,0x886600));
-=======
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.4,0.032,6,22), mat(C.turnGold,0x886600));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     ring.rotation.x = Math.PI/2; ring.position.y = 0.07;
     ring.userData.isTurnIndicator = true; ring.visible = false;
     g.add(ring);
 
     // Attack indicator ring
-<<<<<<< HEAD
     const atkR = new THREE.Mesh(new THREE.TorusGeometry(0.44,0.045,10,24), mat(C.atkRed,0x660000));
-=======
-    const atkR = new THREE.Mesh(new THREE.TorusGeometry(0.44,0.045,6,22), mat(C.atkRed,0x660000));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     atkR.rotation.x = Math.PI/2; atkR.position.y = 0.06;
     atkR.userData.isIndicator = true; atkR.visible = false;
     g.add(atkR);
 
     // Ability target indicator ring (teal)
-<<<<<<< HEAD
     const abilR = new THREE.Mesh(new THREE.TorusGeometry(0.48,0.04,10,24), mat(C.abilTeal,0x004438));
-=======
-    const abilR = new THREE.Mesh(new THREE.TorusGeometry(0.48,0.04,6,22), mat(C.abilTeal,0x004438));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     abilR.rotation.x = Math.PI/2; abilR.position.y = 0.055;
     abilR.userData.isAbilityIndicator = true; abilR.visible = false;
     g.add(abilR);
@@ -949,13 +780,8 @@ window.Combat3D = (() => {
     const isSkel = ['skeleton','zombie'].includes(typeId);
 
     if (isSp) {
-<<<<<<< HEAD
       bodyGrp.add(sph(0.27*sc,12,mB,0,0.24,0));
       bodyGrp.add(sph(0.19*sc,12,mH,0,0.45,0.12));
-=======
-      bodyGrp.add(sph(0.27*sc,8,mB,0,0.24,0));
-      bodyGrp.add(sph(0.19*sc,7,mH,0,0.45,0.12));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       bodyGrp.add(box(0.07,0.07,0.025,mE,-0.1,0.49,0.28));
       bodyGrp.add(box(0.07,0.07,0.025,mE, 0.1,0.49,0.28));
       for (let i=0;i<4;i++) {
@@ -964,32 +790,19 @@ window.Combat3D = (() => {
         leg.rotation.z=s*(Math.PI/6+i*0.1); bodyGrp.add(leg);
       }
     } else if (isFly) {
-<<<<<<< HEAD
       bodyGrp.add(sph(0.22*sc,12,mB,0,0.42,0));
       bodyGrp.add(sph(0.15*sc,12,mH,0,0.65,0.08));
-=======
-      bodyGrp.add(sph(0.22*sc,7,mB,0,0.42,0));
-      bodyGrp.add(sph(0.15*sc,6,mH,0,0.65,0.08));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       bodyGrp.add(box(0.065,0.065,0.025,mE,-0.07,0.68,0.22));
       bodyGrp.add(box(0.065,0.065,0.025,mE, 0.07,0.68,0.22));
       const mWg=mat(C.enemyDark,0,0.75);
       bodyGrp.add(box(0.55*sc,0.045,0.32*sc,mWg,-0.38,0.48,0));
       bodyGrp.add(box(0.55*sc,0.045,0.32*sc,mWg, 0.38,0.48,0));
     } else if (isMag) {
-<<<<<<< HEAD
       bodyGrp.add(cyl(0.24*sc,0.3*sc,0.72*sc,12,mB,0,0.38,0));
       bodyGrp.add(sph(0.24*sc,12,mH,0,0.86,0));
       bodyGrp.add(box(0.11,0.1,0.025,mE,-0.1,0.88,0.22));
       bodyGrp.add(box(0.11,0.1,0.025,mE, 0.1,0.88,0.22));
       bodyGrp.add(sph(0.11,12,mat(0x8822ff,0x5511cc),0.38,0.88,0));
-=======
-      bodyGrp.add(cyl(0.24*sc,0.3*sc,0.72*sc,8,mB,0,0.38,0));
-      bodyGrp.add(sph(0.24*sc,7,mH,0,0.86,0));
-      bodyGrp.add(box(0.11,0.1,0.025,mE,-0.1,0.88,0.22));
-      bodyGrp.add(box(0.11,0.1,0.025,mE, 0.1,0.88,0.22));
-      bodyGrp.add(sph(0.11,8,mat(0x8822ff,0x5511cc),0.38,0.88,0));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       // Floating runes around body
       for (let i=0;i<3;i++) {
         const a=i*Math.PI*2/3;
@@ -998,11 +811,7 @@ window.Combat3D = (() => {
       }
     } else if (isLrg) {
       bodyGrp.add(box(0.8*sc,0.68*sc,0.58*sc,mB,0,0.5,0));
-<<<<<<< HEAD
       bodyGrp.add(sph(0.35*sc,12,mH,0,1.05,0));
-=======
-      bodyGrp.add(sph(0.35*sc,7,mH,0,1.05,0));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       bodyGrp.add(box(0.13,0.11,0.025,mE,-0.14,1.1,0.3));
       bodyGrp.add(box(0.13,0.11,0.025,mE, 0.14,1.1,0.3));
       bodyGrp.add(box(0.3*sc,0.64*sc,0.28*sc,mD,-0.58,0.5,0));
@@ -1010,7 +819,6 @@ window.Combat3D = (() => {
       bodyGrp.add(box(0.38*sc,0.58*sc,0.35*sc,mD,-0.14,0.13,0));
       bodyGrp.add(box(0.38*sc,0.58*sc,0.35*sc,mD, 0.14,0.13,0));
     } else if (isSkel) {
-<<<<<<< HEAD
       const mBone  = mat(0xa0a085, 0x282010); // light yellowish bone
       const mBoneD = mat(0x888870, 0x1c1808); // darker bone for recessed parts
       const mSword = mat(0x9090a0, 0x282830); // sword blade metal
@@ -1058,53 +866,29 @@ window.Combat3D = (() => {
       bodyGrp.add(box(0.06,0.04,0.48,mShldR,shx,0.90,0.07));            // top rim
       bodyGrp.add(box(0.06,0.04,0.48,mShldR,shx,0.30,0.07));            // bottom rim
       bodyGrp.add(box(0.06,0.62,0.04,mShldR,shx,0.60,0.30));            // front edge
-=======
-      bodyGrp.add(box(0.4*sc,0.44,0.32,mB,0,0.58,0));
-      bodyGrp.add(sph(0.21*sc,7,mat(0x9a9880),0,0.94,0));
-      bodyGrp.add(box(0.11,0.09,0.025,mE,-0.09,0.97,0.19));
-      bodyGrp.add(box(0.11,0.09,0.025,mE, 0.09,0.97,0.19));
-      bodyGrp.add(box(0.17,0.52,0.17,mB,-0.14,0.22,0));
-      bodyGrp.add(box(0.17,0.52,0.17,mB, 0.14,0.22,0));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     } else {
       bodyGrp.add(box(0.23,0.46,0.23,mD,-0.13,0.24,0));
       bodyGrp.add(box(0.23,0.46,0.23,mD, 0.13,0.24,0));
       bodyGrp.add(box(0.54,0.5,0.38,mB,0,0.72,0));
       bodyGrp.add(box(0.21,0.46,0.21,mD,-0.38,0.66,0));
       bodyGrp.add(box(0.21,0.46,0.21,mD, 0.38,0.66,0));
-<<<<<<< HEAD
       bodyGrp.add(sph(0.22,12,mH,0,1.08,0));
-=======
-      bodyGrp.add(sph(0.22,7,mH,0,1.08,0));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       bodyGrp.add(box(0.1,0.09,0.025,mE,-0.09,1.11,0.2));
       bodyGrp.add(box(0.1,0.09,0.025,mE, 0.09,1.11,0.2));
     }
 
     g.add(bodyGrp);
 
-<<<<<<< HEAD
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42,0.033,10,24), mat(C.turnGold,0x886600));
     ring.rotation.x=Math.PI/2; ring.position.y=0.05;
     ring.userData.isTurnIndicator=true; ring.visible=false; g.add(ring);
 
     const atkR = new THREE.Mesh(new THREE.TorusGeometry(0.46,0.05,10,24), mat(C.atkRed,0x660000));
-=======
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42,0.033,6,22), mat(C.turnGold,0x886600));
-    ring.rotation.x=Math.PI/2; ring.position.y=0.05;
-    ring.userData.isTurnIndicator=true; ring.visible=false; g.add(ring);
-
-    const atkR = new THREE.Mesh(new THREE.TorusGeometry(0.46,0.05,6,22), mat(C.atkRed,0x660000));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     atkR.rotation.x=Math.PI/2; atkR.position.y=0.04;
     atkR.userData.isIndicator=true; atkR.visible=false; g.add(atkR);
 
     // Ability target indicator ring (teal)
-<<<<<<< HEAD
     const abilR = new THREE.Mesh(new THREE.TorusGeometry(0.50,0.04,10,24), mat(C.abilTeal,0x004438));
-=======
-    const abilR = new THREE.Mesh(new THREE.TorusGeometry(0.50,0.04,6,22), mat(C.abilTeal,0x004438));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     abilR.rotation.x=Math.PI/2; abilR.position.y=0.035;
     abilR.userData.isAbilityIndicator=true; abilR.visible=false; g.add(abilR);
 
@@ -1377,7 +1161,6 @@ window.Combat3D = (() => {
     return reach;
   }
 
-<<<<<<< HEAD
   // ─── Orbit handlers ────────────────────────────────────────────────────────
   function onRightDown(ev) {
     if (ev.button !== 2) return;
@@ -1416,10 +1199,6 @@ window.Combat3D = (() => {
   // ─── Input handling ────────────────────────────────────────────────────────
   function onPointerDown(ev) {
     if (ev.button !== 0) return;
-=======
-  // ─── Input handling ────────────────────────────────────────────────────────
-  function onPointerDown(ev) {
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     if (!renderer||!scene||!camera) return;
     const rect = renderer.domElement.getBoundingClientRect();
     mouse.x = ((ev.clientX-rect.left)/rect.width)*2-1;
@@ -1526,21 +1305,12 @@ window.Combat3D = (() => {
 
   function _fxFireball(from, to) {
     const ballMat = new THREE.MeshBasicMaterial({ color: 0xff5500 });
-<<<<<<< HEAD
     const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), ballMat);
     ball.position.copy(from);
     const glowMat = new THREE.MeshBasicMaterial({ color: 0xff9900, transparent: true, opacity: 0.45 });
     ball.add(new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 12), glowMat));
     const ringMat = new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.07, 8, 16), ringMat);
-=======
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), ballMat);
-    ball.position.copy(from);
-    const glowMat = new THREE.MeshBasicMaterial({ color: 0xff9900, transparent: true, opacity: 0.45 });
-    ball.add(new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 8), glowMat));
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.07, 5, 14), ringMat);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     ring.rotation.x = Math.PI / 2; ring.visible = false;
     const FLY = 0.55, EXP = 0.45;
     let phase = 0; const sparks = [];
@@ -1555,11 +1325,7 @@ window.Combat3D = (() => {
           ring.position.set(to.x, 0.15, to.z); ring.visible = true;
           for (let i = 0; i < 7; i++) {
             const a = (i / 7) * Math.PI * 2;
-<<<<<<< HEAD
             const sp = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6),
-=======
-            const sp = new THREE.Mesh(new THREE.SphereGeometry(0.05, 4, 4),
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
               new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true }));
             sp.position.set(to.x, 0.3, to.z);
             sp.userData = { vx: Math.cos(a) * 2.2, vy: 2.2, vz: Math.sin(a) * 2.2 };
@@ -1583,21 +1349,13 @@ window.Combat3D = (() => {
 
   function _fxIceLance(from, to) {
     const spikeMat = new THREE.MeshBasicMaterial({ color: 0x88ddff });
-<<<<<<< HEAD
     const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.52, 8), spikeMat);
-=======
-    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.52, 6), spikeMat);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     spike.position.copy(from);
     // Orient cone tip toward target
     const dir = new THREE.Vector3().subVectors(to, from).normalize();
     spike.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
     const glowMat = new THREE.MeshBasicMaterial({ color: 0xaaeeff, transparent: true, opacity: 0.4 });
-<<<<<<< HEAD
     spike.add(new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), glowMat));
-=======
-    spike.add(new THREE.Mesh(new THREE.SphereGeometry(0.13, 6, 6), glowMat));
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     const FLY = 0.32, SHAT = 0.38;
     let phase = 0; const shards = [];
     _spawnFx([spike], function(t, dt) {
@@ -1650,11 +1408,7 @@ window.Combat3D = (() => {
         const len = p0.distanceTo(p1);
         const mid = p0.clone().add(p1).multiplyScalar(0.5);
         const segDir = new THREE.Vector3().subVectors(p1, p0).normalize();
-<<<<<<< HEAD
         const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, len, 6),
-=======
-        const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, len, 4),
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
           new THREE.MeshBasicMaterial({ color: 0xbbf0ff, transparent: true, opacity: b === 0 ? 0.9 : 0 }));
         seg.position.copy(mid);
         seg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), segDir);
@@ -1674,11 +1428,7 @@ window.Combat3D = (() => {
 
   function _fxSmokeBomb(from, to) {
     const bombMat = new THREE.MeshBasicMaterial({ color: 0x333333 });
-<<<<<<< HEAD
     const bomb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 10), bombMat);
-=======
-    const bomb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), bombMat);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     bomb.position.copy(from);
     const FLY = 0.45, CLOUD = 0.6;
     let phase = 0; const clouds = [];
@@ -1691,11 +1441,7 @@ window.Combat3D = (() => {
           phase = 1; this.t = 0; bomb.visible = false;
           for (let i = 0; i < 6; i++) {
             const a = (i / 6) * Math.PI * 2;
-<<<<<<< HEAD
             const cl = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10),
-=======
-            const cl = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6, 6),
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
               new THREE.MeshBasicMaterial({ color: 0x334433, transparent: true, opacity: 0.75 }));
             cl.position.set(to.x + Math.cos(a) * 0.3, 0.4, to.z + Math.sin(a) * 0.3);
             cl.userData = { ox: Math.cos(a), oz: Math.sin(a) };
@@ -1718,17 +1464,10 @@ window.Combat3D = (() => {
 
   function _fxHolySmite(from, to) {
     const beamMat = new THREE.MeshBasicMaterial({ color: 0xffffaa, transparent: true, opacity: 0, side: THREE.DoubleSide });
-<<<<<<< HEAD
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 4, 12), beamMat);
     beam.position.set(to.x, 2.3, to.z);
     const flashMat = new THREE.MeshBasicMaterial({ color: 0xffffcc, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
     const flash = new THREE.Mesh(new THREE.CircleGeometry(0.08, 16), flashMat);
-=======
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 4, 8), beamMat);
-    beam.position.set(to.x, 2.3, to.z);
-    const flashMat = new THREE.MeshBasicMaterial({ color: 0xffffcc, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
-    const flash = new THREE.Mesh(new THREE.CircleGeometry(0.08, 12), flashMat);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     flash.rotation.x = -Math.PI / 2; flash.position.set(to.x, 0.18, to.z);
     const DUR = 0.55;
     _spawnFx([beam, flash], function(t, dt) {
@@ -1742,21 +1481,12 @@ window.Combat3D = (() => {
 
   function _fxCurse(from, to) {
     const orbMat = new THREE.MeshBasicMaterial({ color: 0x8800cc });
-<<<<<<< HEAD
     const orb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), orbMat);
     orb.position.copy(from);
     const glowMat = new THREE.MeshBasicMaterial({ color: 0xcc00ff, transparent: true, opacity: 0.4 });
     orb.add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), glowMat));
     const swirlMat = new THREE.MeshBasicMaterial({ color: 0x8800cc, transparent: true, opacity: 0 });
     const swirl = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.04, 8, 16), swirlMat);
-=======
-    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), orbMat);
-    orb.position.copy(from);
-    const glowMat = new THREE.MeshBasicMaterial({ color: 0xcc00ff, transparent: true, opacity: 0.4 });
-    orb.add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), glowMat));
-    const swirlMat = new THREE.MeshBasicMaterial({ color: 0x8800cc, transparent: true, opacity: 0 });
-    const swirl = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.04, 5, 14), swirlMat);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     swirl.position.set(to.x, 0.2, to.z);
     const FLY = 0.5, IMPACT = 0.45;
     let phase = 0;
@@ -1829,7 +1559,6 @@ window.Combat3D = (() => {
 
     raycaster = new THREE.Raycaster();
     mouse     = new THREE.Vector2();
-<<<<<<< HEAD
     orbitTheta = 0;
     orbitPhi = Math.atan2(10, 11);
     orbitVTheta = 0;
@@ -1842,10 +1571,6 @@ window.Combat3D = (() => {
     renderer.domElement.addEventListener('pointerleave', stopOrbit);
     renderer.domElement.addEventListener('pointermove',  onOrbitMove);
     renderer.domElement.addEventListener('contextmenu',  onContextMenu);
-=======
-    renderer.domElement.addEventListener('pointerdown',  onPointerDown);
-    renderer.domElement.addEventListener('pointermove',  onPointerMove);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 
     const ro = new ResizeObserver(() => {
       if (!renderer) return;
@@ -1865,7 +1590,6 @@ window.Combat3D = (() => {
       last = now;
       t += dt;
 
-<<<<<<< HEAD
       // Orbit inertia — applies when not dragging and velocity is significant
       if (!orbitActive && camera && (Math.abs(orbitVTheta) > 0.0005 || Math.abs(orbitVPhi) > 0.0005)) {
         const decay = Math.pow(0.04, dt); // exponential decay: ~96% speed lost per second
@@ -1881,8 +1605,6 @@ window.Combat3D = (() => {
         camera.lookAt(0, 0, 0);
       }
 
-=======
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       // Lerp positions
       entityGroup.children.forEach(grp => {
         if (grp.userData.targetPos) {
@@ -1925,7 +1647,6 @@ window.Combat3D = (() => {
     if (animId) cancelAnimationFrame(animId);
     if (renderer) {
       renderer._ro?.disconnect();
-<<<<<<< HEAD
       renderer.domElement.removeEventListener('pointerdown',  onPointerDown);
       renderer.domElement.removeEventListener('pointermove',  onPointerMove);
       renderer.domElement.removeEventListener('pointerdown',  onRightDown);
@@ -1934,10 +1655,6 @@ window.Combat3D = (() => {
       renderer.domElement.removeEventListener('pointermove',  onOrbitMove);
       renderer.domElement.removeEventListener('contextmenu',  onContextMenu);
       orbitActive = false;
-=======
-      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
-      renderer.domElement.removeEventListener('pointermove', onPointerMove);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       renderer.dispose();
       renderer.domElement.parentNode?.removeChild(renderer.domElement);
     }

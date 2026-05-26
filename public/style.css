@@ -1,4 +1,4 @@
-/* ═══════════════════════════════════════════════════════════════════
+﻿/* ═══════════════════════════════════════════════════════════════════
    DARK FANTASY RPG — RICH SKEUOMORPHISM
    Dungeon Roguelike — Complete Visual Restyle
    Inspired by King's Bounty / HoMM era RPG interfaces
@@ -646,7 +646,6 @@ input[type="text"]:focus {
 .class-portrait svg {
   width: 100%;
   height: 100%;
-<<<<<<< HEAD
   max-height: 320px;
   display: block;
 }
@@ -691,42 +690,6 @@ input[type="text"]:focus {
 .stat-val-high { color: #f0d060; text-shadow: 0 0 8px rgba(240,200,60,0.7), 0 1px 3px rgba(0,0,0,0.9); }
 .stat-val-mid  { color: #d0dce8; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
 .stat-val-low  { color: #d05050; text-shadow: 0 0 6px rgba(200,40,40,0.5), 0 1px 3px rgba(0,0,0,0.9); }
-=======
-  max-height: 200px;
-  display: block;
-}
-
-/* Stat bars */
-.class-stats { display: flex; flex-direction: column; gap: 5px; }
-.stat-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 9px;
-  color: var(--text-dim);
-  letter-spacing: 0.5px;
-}
-.stat-bar-row span { width: 52px; text-align: right; font-family: var(--font); font-size: 9px; }
-.stat-bar {
-  flex: 1;
-  height: 6px;
-  background: linear-gradient(90deg, var(--stone-void), var(--stone-deep));
-  border: 1px solid rgba(212,175,55,0.2);
-  border-radius: 2px;
-  overflow: hidden;
-  box-shadow: var(--shadow-inset);
-}
-.stat-fill {
-  height: 100%;
-  background: linear-gradient(90deg,
-    rgba(160,20,20,0.8) 0%,
-    rgba(220,40,40,0.9) 60%,
-    rgba(240,80,40,0.95) 100%
-  );
-  border-radius: 1px;
-  box-shadow: 0 0 4px rgba(220,40,40,0.4);
-}
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 
 /* Ability tags */
 .class-abilities { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -927,11 +890,7 @@ input[type="text"]:focus {
 .player-stat-card.active-turn { background: rgba(212,175,55,0.04); }
 .player-stat-card.active-turn::before { background: var(--gold-mid); }
 
-<<<<<<< HEAD
 .psc-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 5px; }
-=======
-.psc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 .psc-name {
   font-size: 11px;
   font-family: var(--font);
@@ -939,14 +898,11 @@ input[type="text"]:focus {
   color: var(--text-bright);
   letter-spacing: 0.5px;
   text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-<<<<<<< HEAD
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-=======
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 }
 .psc-class {
   font-size: 9px;
@@ -2975,7 +2931,6 @@ body.ps1 svg { image-rendering: auto; }
   letter-spacing: 0.3px;
 }
 .mg-res-btn:active { transform: scale(0.93) translateY(2px); }
-<<<<<<< HEAD
 
 /* ═══════════════════════════════════════════
    ULTIMATE ORB — Charge display & click-to-activate
@@ -3113,5 +3068,3 @@ body.ps1 svg { image-rendering: auto; }
   0%, 100% { opacity: 0.85; }
   50%       { opacity: 1; filter: brightness(1.3); }
 }
-=======
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21

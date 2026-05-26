@@ -1,4 +1,4 @@
-window.Room3D = (() => {
+﻿window.Room3D = (() => {
   'use strict';
   let _ren = null, _scene = null, _cam = null, _animId = null;
   let _container = null, _roomGroup = null, _currentType = null;
@@ -10,19 +10,13 @@ window.Room3D = (() => {
       Object.assign({ color: hex, flatShading: true }, opts || {})));
   }
   const bx = (w, h, d) => new THREE.BoxGeometry(w, h, d);
-<<<<<<< HEAD
   const cy = (rt, rb, h, s) => new THREE.CylinderGeometry(rt, rb, h, s || 10);
   const cn = (r, h, s) => new THREE.ConeGeometry(r, h, s || 8);
-=======
-  const cy = (rt, rb, h, s) => new THREE.CylinderGeometry(rt, rb, h, s || 6);
-  const cn = (r, h, s) => new THREE.ConeGeometry(r, h, s || 6);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 
   // ── Shared corridor shell ───────────────────────────────────────────────────
   function mkCorridor() {
     const g = new THREE.Group();
 
-<<<<<<< HEAD
     // Floor — stone tile base
     const floor = mk(bx(7.2, 0.3, 26), 0x0e0b09);
     floor.position.set(0, -1.72, -9); g.add(floor);
@@ -54,20 +48,6 @@ window.Room3D = (() => {
         corbel.position.set(x, 1.96, z); g.add(corbel);
       }
     }
-=======
-    // Floor
-    const floor = mk(bx(7.2, 0.3, 26), 0x100d0b);
-    floor.position.set(0, -1.72, -9); g.add(floor);
-    // Floor seam strips
-    for (let z = -1; z >= -17; z -= 3.8) {
-      const s = mk(bx(7.2, 0.025, 0.1), 0x1c1714);
-      s.position.set(0, -1.57, z); g.add(s);
-    }
-
-    // Ceiling
-    const ceil = mk(bx(7.2, 0.3, 26), 0x08060c);
-    ceil.position.set(0, 2.22, -9); g.add(ceil);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 
     // Left wall
     const wL = mk(bx(0.28, 4.2, 26), 0x13101a);
@@ -76,7 +56,6 @@ window.Room3D = (() => {
     const wR = mk(bx(0.28, 4.2, 26), 0x13101a);
     wR.position.set(3.42, 0.2, -9); g.add(wR);
 
-<<<<<<< HEAD
     // Stone block HORIZONTAL COURSES on walls
     const stoneSeamY = [-1.38, -0.48, 0.48, 1.38, 2.06];
     for (const sy of stoneSeamY) {
@@ -156,37 +135,6 @@ window.Room3D = (() => {
     const lgt = new THREE.PointLight(0xff6600, 2.63, 8.5);
     lgt.userData.base = 2.63;
     lgt.position.set(flameX, 1.3, z); _lights.push(lgt); g.add(lgt);
-=======
-    // Stone block outlines on walls
-    for (let z = -0.5; z >= -16; z -= 3.6) {
-      for (const x of [-3.3, 3.3]) {
-        const blk = mk(bx(0.06, 1.5, 3.4), 0x1c1828);
-        blk.position.set(x, 0.2, z); g.add(blk);
-        const blk2 = mk(bx(0.06, 1.1, 3.4), 0x1c1828);
-        blk2.position.set(x, -1.05, z); g.add(blk2);
-      }
-    }
-
-    return g;
-  }
-
-  // ── Wall torch (one side) ───────────────────────────────────────────────────
-  function mkTorch(x, z) {
-    const g = new THREE.Group();
-    const br = mk(bx(0.18, 0.1, 0.38), 0x3a2808);
-    br.position.set(x, 0.88, z); g.add(br);
-    const hnd = mk(cy(0.05, 0.06, 0.4, 5), 0x2c1a06);
-    hnd.position.set(x, 0.65, z); g.add(hnd);
-
-    const fl1 = mk(cn(0.14, 0.38, 5), 0xff8010);
-    fl1.position.set(x, 1.06, z); _flames.push(fl1); g.add(fl1);
-    const fl2 = mk(cn(0.07, 0.25, 5), 0xffcc40);
-    fl2.position.set(x, 1.1, z); _flames.push(fl2); g.add(fl2);
-
-    const lgt = new THREE.PointLight(0xff6600, 2.63, 8.5);
-    lgt.userData.base = 2.63;
-    lgt.position.set(x, 1.1, z); _lights.push(lgt); g.add(lgt);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     return g;
   }
 
@@ -207,7 +155,6 @@ window.Room3D = (() => {
       aR.position.set(1.28, 0.12, z); g.add(aR);
       const aTop = mk(bx(2.8, 0.22, 0.38), 0x1e1a2c);
       aTop.position.set(0, 1.68, z); g.add(aTop);
-<<<<<<< HEAD
       // Keystone wedge
       const ks = mk(bx(0.36, 0.3, 0.4), 0x221e30);
       ks.position.set(0, 1.8, z); g.add(ks);
@@ -269,11 +216,6 @@ window.Room3D = (() => {
         const ornInner = mk(bx(0.12, 0.12, 0.04), 0x2c2840);
         ornInner.position.set(ox, oy, z + 0.21); g.add(ornInner);
       }
-=======
-    } else {
-      const w = mk(bx(7.2, 4.2, 0.32), 0x13101a);
-      w.position.set(0, 0.2, z); g.add(w);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     }
     return g;
   }
@@ -312,7 +254,6 @@ window.Room3D = (() => {
     g.add(mkTorch(-3.05, -10.5)); g.add(mkTorch(3.05, -10.5));
     g.add(mkBackWall(-14, false));
 
-<<<<<<< HEAD
     // Symmetric side pedestals flanking the path (like reference image)
     for (const px of [-2.6, 2.6]) {
       for (const pz of [-4.5, -8.5]) {
@@ -330,8 +271,6 @@ window.Room3D = (() => {
       }
     }
 
-=======
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     // Boss altar / pedestal
     const base = mk(bx(1.9, 0.2, 1.9), 0x1c182a);
     base.position.set(0, -1.63, -9.5); g.add(base);
@@ -342,19 +281,15 @@ window.Room3D = (() => {
     // Sacrificial gem
     const gem = mk(bx(0.15, 0.15, 0.15), 0xcc0020);
     gem.rotation.y = 0.8; gem.position.set(0, -0.68, -9.5); g.add(gem);
-<<<<<<< HEAD
     // Altar glow ring
     const altarRing = mk(bx(1.18, 0.04, 1.18), 0x440044);
     altarRing.position.set(0, -0.77, -9.5); g.add(altarRing);
-=======
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
 
     // Boss purple light
     const bL = new THREE.PointLight(0xaa00cc, 3.38, 16);
     bL.userData.base = 3.38;
     bL.position.set(0, 1.5, -9.5); _lights.push(bL); g.add(bL);
 
-<<<<<<< HEAD
     // Hanging chains with skulls
     for (let i = 0; i < 3; i++) {
       const cx = -2.1 + i * 2.1;
@@ -363,12 +298,6 @@ window.Room3D = (() => {
       // Skull at chain end
       const sk = mk(bx(0.18, 0.16, 0.2), 0x706858);
       sk.position.set(cx + 0.6, -0.95, -7.6); g.add(sk);
-=======
-    // Hanging chains
-    for (let i = 0; i < 3; i++) {
-      const ch = mk(cy(0.025, 0.025, 2.8, 4), 0x2c2c2c);
-      ch.position.set(-2.1 + i * 2.1, 0.4, -7); ch.rotation.x = 0.22; g.add(ch);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     }
 
     return g;
@@ -381,37 +310,21 @@ window.Room3D = (() => {
     g.add(mkTorch(-3.05, -2.2)); g.add(mkTorch(3.05, -2.2));
 
     // Campfire logs
-<<<<<<< HEAD
     const log1 = mk(cy(0.12, 0.15, 1.3, 10), 0x3a1e08);
     log1.rotation.z = Math.PI / 2; log1.position.set(0.3, -1.54, -4.8); g.add(log1);
     const log2 = mk(cy(0.12, 0.15, 1.3, 10), 0x2e1808);
     log2.rotation.set(0.35, 0.9, Math.PI / 2); log2.position.set(-0.35, -1.54, -5.1); g.add(log2);
     const log3 = mk(cy(0.1, 0.12, 1.0, 9), 0x3c2008);
-=======
-    const log1 = mk(cy(0.12, 0.15, 1.3, 6), 0x3a1e08);
-    log1.rotation.z = Math.PI / 2; log1.position.set(0.3, -1.54, -4.8); g.add(log1);
-    const log2 = mk(cy(0.12, 0.15, 1.3, 6), 0x2e1808);
-    log2.rotation.set(0.35, 0.9, Math.PI / 2); log2.position.set(-0.35, -1.54, -5.1); g.add(log2);
-    const log3 = mk(cy(0.1, 0.12, 1.0, 5), 0x3c2008);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     log3.rotation.set(0.1, 0.5, 1.4); log3.position.set(0, -1.54, -5.3); g.add(log3);
     const ember = mk(bx(0.58, 0.04, 0.58), 0xcc3800);
     ember.position.set(0, -1.58, -4.95); g.add(ember);
 
     // Campfire flames
-<<<<<<< HEAD
     const f1 = mk(cn(0.23, 0.62, 8), 0xff7010);
     f1.position.set(0, -1.21, -4.95); _flames.push(f1); g.add(f1);
     const f2 = mk(cn(0.14, 0.44, 8), 0xffcc30);
     f2.position.set(0.05, -1.06, -4.95); _flames.push(f2); g.add(f2);
     const f3 = mk(cn(0.07, 0.26, 7), 0xfff0a0);
-=======
-    const f1 = mk(cn(0.23, 0.62, 5), 0xff7010);
-    f1.position.set(0, -1.21, -4.95); _flames.push(f1); g.add(f1);
-    const f2 = mk(cn(0.14, 0.44, 5), 0xffcc30);
-    f2.position.set(0.05, -1.06, -4.95); _flames.push(f2); g.add(f2);
-    const f3 = mk(cn(0.07, 0.26, 4), 0xfff0a0);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     f3.position.set(0, -0.97, -4.95); _flames.push(f3); g.add(f3);
 
     // Warm fire light
@@ -422,11 +335,7 @@ window.Room3D = (() => {
     // Bedroll
     const bed = mk(bx(1.0, 0.1, 2.1), 0x483020);
     bed.position.set(-2.05, -1.64, -5.8); g.add(bed);
-<<<<<<< HEAD
     const roll = mk(cy(0.22, 0.22, 1.0, 10), 0x5a3c28);
-=======
-    const roll = mk(cy(0.22, 0.22, 1.0, 6), 0x5a3c28);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     roll.rotation.z = Math.PI / 2; roll.position.set(-2.05, -1.51, -4.75); g.add(roll);
     // Satchel near bedroll
     const satch = mk(bx(0.35, 0.28, 0.28), 0x5a3c18);
@@ -463,11 +372,7 @@ window.Room3D = (() => {
     // Scattered coins
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
-<<<<<<< HEAD
       const coin = mk(cy(0.09, 0.09, 0.025, 10), 0xd4a810);
-=======
-      const coin = mk(cy(0.09, 0.09, 0.025, 6), 0xd4a810);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       coin.position.set(Math.cos(a) * 0.65, -1.63, -6.8 + Math.sin(a) * 0.38); g.add(coin);
     }
     // Small side chest
@@ -497,21 +402,12 @@ window.Room3D = (() => {
     }
 
     // Potion bottle
-<<<<<<< HEAD
     const pb = mk(cy(0.11, 0.13, 0.35, 10), 0x2a1060);
     pb.position.set(-0.9, -0.64, -6.0); g.add(pb);
     const pn = mk(cy(0.05, 0.1, 0.16, 9), 0x2a1060);
     pn.position.set(-0.9, -0.45, -6.0); g.add(pn);
     // Scroll
     const scr = mk(cy(0.09, 0.09, 0.3, 12), 0xd4b870);
-=======
-    const pb = mk(cy(0.11, 0.13, 0.35, 6), 0x2a1060);
-    pb.position.set(-0.9, -0.64, -6.0); g.add(pb);
-    const pn = mk(cy(0.05, 0.1, 0.16, 5), 0x2a1060);
-    pn.position.set(-0.9, -0.45, -6.0); g.add(pn);
-    // Scroll
-    const scr = mk(cy(0.09, 0.09, 0.3, 8), 0xd4b870);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
     scr.rotation.z = Math.PI / 2; scr.position.set(0.4, -0.73, -6.0); g.add(scr);
     // Sword
     const hilt = mk(bx(0.08, 0.42, 0.08), 0x4a4c50);
@@ -602,11 +498,7 @@ window.Room3D = (() => {
 
     // Columns flanking entrance
     for (const x of [-2.82, 2.82]) {
-<<<<<<< HEAD
       const col = mk(cy(0.21, 0.27, 3.9, 10), 0x1e1828);
-=======
-      const col = mk(cy(0.21, 0.27, 3.9, 6), 0x1e1828);
->>>>>>> eb20a372805b03e5b77f22be3660b26ce694cd21
       col.position.set(x, 0.18, -2.2); g.add(col);
       const cap = mk(bx(0.62, 0.22, 0.62), 0x2a2238);
       cap.position.set(x, 2.09, -2.2); g.add(cap);
