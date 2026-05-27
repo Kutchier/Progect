@@ -15,21 +15,21 @@ const ROOM_TYPES = {
 
 const SHOP_ITEMS = [
   // ── TIER 1 WEAPONS ──────────────────────────────────────────────────────────
-  { id: 'ws_iron_sword',    name: 'Железный меч',         type: 'weapon',    tier: 1, price: 35,
+  { id: 'ws_iron_sword',    name: 'Железный меч',         type: 'weapon', slot: 'mainHand', tier: 1, price: 35,
     attackBonus: 5,  desc: '+5 к атаке.' },
-  { id: 'ws_bone_axe',      name: 'Костяной топор',       type: 'weapon',    tier: 1, price: 45,
+  { id: 'ws_bone_axe',      name: 'Костяной топор',       type: 'weapon', slot: 'mainHand', tier: 1, price: 45,
     attackBonus: 7,  desc: '+7 к атаке.' },
-  { id: 'ws_shadow_dagger', name: 'Кинжал теней',         type: 'weapon',    tier: 1, price: 55,
+  { id: 'ws_shadow_dagger', name: 'Кинжал теней',         type: 'weapon', slot: 'mainHand', tier: 1, price: 55,
     attackBonus: 9,  desc: '+9 к атаке.' },
   // ── TIER 1 ARMOR ────────────────────────────────────────────────────────────
-  { id: 'as_leather_armor', name: 'Кожаная броня',        type: 'armor',     tier: 1, price: 28,
+  { id: 'as_leather_armor', name: 'Кожаная броня',        type: 'armor',  slot: 'armor',    tier: 1, price: 28,
     defenseBonus: 5, desc: '+5 к защите.' },
   // ── TIER 1 ACCESSORIES ──────────────────────────────────────────────────────
-  { id: 'ac_ring_power',    name: 'Кольцо силы',          type: 'accessory', tier: 1, price: 60,
+  { id: 'ac_ring_power',    name: 'Кольцо силы',          type: 'ring',   slot: 'ring1',    tier: 1, price: 60,
     attackBonus: 7,  desc: '+7 к атаке.' },
-  { id: 'ac_ring_defense',  name: 'Кольцо защиты',        type: 'accessory', tier: 1, price: 55,
+  { id: 'ac_ring_defense',  name: 'Кольцо защиты',        type: 'ring',   slot: 'ring1',    tier: 1, price: 55,
     defenseBonus: 7, desc: '+7 к защите.' },
-  { id: 'ac_lucky_charm',   name: 'Амулет удачи',         type: 'accessory', tier: 1, price: 70,
+  { id: 'ac_lucky_charm',   name: 'Амулет удачи',         type: 'ring',   slot: 'ring1',    tier: 1, price: 70,
     attackBonus: 5, defenseBonus: 3, desc: '+5 атк, +3 защ.' },
   // ── TIER 1 CONSUMABLES ──────────────────────────────────────────────────────
   { id: 'cs_potion_minor',  name: 'Малое зелье',          type: 'consumable', tier: 1, price: 18,
@@ -50,29 +50,29 @@ const SHOP_ITEMS = [
     defenseBuff: { value: 0.6, duration: 2 }, desc: 'Защита +60% на 2 хода.' },
 
   // ── TIER 2 WEAPONS ──────────────────────────────────────────────────────────
-  { id: 'ws_steel_sword',   name: 'Стальной меч',         type: 'weapon',    tier: 2, price: 75,
+  { id: 'ws_steel_sword',   name: 'Стальной меч',         type: 'weapon', slot: 'mainHand', tier: 2, price: 75,
     attackBonus: 12, desc: '+12 к атаке.' },
-  { id: 'ws_battle_axe',    name: 'Боевой топор',         type: 'weapon',    tier: 2, price: 95,
+  { id: 'ws_battle_axe',    name: 'Боевой топор',         type: 'weapon', slot: 'mainHand', tier: 2, price: 95,
     attackBonus: 15, desc: '+15 к атаке.' },
-  { id: 'ws_bone_bow',      name: 'Костяной лук',         type: 'weapon',    tier: 2, price: 85,
+  { id: 'ws_bone_bow',      name: 'Костяной лук',         type: 'weapon', slot: 'mainHand', tier: 2, price: 85,
     attackBonus: 12, desc: '+12 к атаке.' },
-  { id: 'ws_frost_staff',   name: 'Посох льда',           type: 'weapon',    tier: 2, price: 110,
+  { id: 'ws_frost_staff',   name: 'Посох льда',           type: 'weapon', slot: 'mainHand', tier: 2, price: 110,
     attackBonus: 15, desc: '+15 к атаке.' },
   // ── TIER 2 ARMOR ────────────────────────────────────────────────────────────
-  { id: 'as_chain_mail',    name: 'Кольчуга',             type: 'armor',     tier: 2, price: 70,
+  { id: 'as_chain_mail',    name: 'Кольчуга',             type: 'armor',  slot: 'armor',    tier: 2, price: 70,
     defenseBonus: 11, desc: '+11 к защите.' },
-  { id: 'as_shadow_cloak',  name: 'Плащ теней',           type: 'armor',     tier: 2, price: 90,
+  { id: 'as_shadow_cloak',  name: 'Плащ теней',           type: 'armor',  slot: 'armor',    tier: 2, price: 90,
     defenseBonus: 9, attackBonus: 4, desc: '+9 защ, +4 атк.' },
-  { id: 'as_mage_robe',     name: 'Мантия мага',          type: 'armor',     tier: 2, price: 95,
+  { id: 'as_mage_robe',     name: 'Мантия мага',          type: 'armor',  slot: 'armor',    tier: 2, price: 95,
     defenseBonus: 8, attackBonus: 7, desc: '+8 защ, +7 атк.' },
   // ── TIER 2 ACCESSORIES ──────────────────────────────────────────────────────
-  { id: 'ac_ring_vitality',  name: 'Кольцо жизни',        type: 'accessory', tier: 2, price: 95,
+  { id: 'ac_ring_vitality',  name: 'Кольцо жизни',        type: 'ring',   slot: 'ring1',    tier: 2, price: 95,
     maxHpBonus: 40,  desc: '+40 к максимуму HP.' },
-  { id: 'ac_mage_crystal',   name: 'Кристалл мага',       type: 'accessory', tier: 2, price: 110,
+  { id: 'ac_mage_crystal',   name: 'Кристалл мага',       type: 'ring',   slot: 'ring1',    tier: 2, price: 110,
     attackBonus: 12, desc: '+12 к атаке.' },
-  { id: 'ac_amulet_warrior', name: 'Амулет воина',        type: 'accessory', tier: 2, price: 120,
+  { id: 'ac_amulet_warrior', name: 'Амулет воина',        type: 'ring',   slot: 'ring1',    tier: 2, price: 120,
     attackBonus: 6, defenseBonus: 6, desc: '+6 атк, +6 защ.' },
-  { id: 'ac_dark_pendant',   name: 'Тёмный кулон',        type: 'accessory', tier: 2, price: 100,
+  { id: 'ac_dark_pendant',   name: 'Тёмный кулон',        type: 'ring',   slot: 'ring1',    tier: 2, price: 100,
     attackBonus: 14, defenseBonus: -3, desc: '+14 атк, -3 защ.' },
   // ── TIER 2 CONSUMABLES ──────────────────────────────────────────────────────
   { id: 'cs_mana_greater',    name: 'Большое зелье маны', type: 'consumable', tier: 2, price: 90,
@@ -89,25 +89,25 @@ const SHOP_ITEMS = [
     damage: { amount: 50, target: 'all_enemies' }, desc: 'Наносит 50 урона всем врагам.' },
 
   // ── TIER 3 WEAPONS ──────────────────────────────────────────────────────────
-  { id: 'ws_enchanted_blade', name: 'Зачарованный клинок', type: 'weapon',   tier: 3, price: 150,
+  { id: 'ws_enchanted_blade', name: 'Зачарованный клинок', type: 'weapon', slot: 'mainHand', tier: 3, price: 150,
     attackBonus: 18, desc: '+18 к атаке.' },
-  { id: 'ws_fire_sword',      name: 'Пылающий меч',        type: 'weapon',   tier: 3, price: 185,
+  { id: 'ws_fire_sword',      name: 'Пылающий меч',        type: 'weapon', slot: 'mainHand', tier: 3, price: 185,
     attackBonus: 21, desc: '+21 к атаке.' },
-  { id: 'ws_cursed_blade',    name: 'Проклятый клинок',    type: 'weapon',   tier: 3, price: 210,
+  { id: 'ws_cursed_blade',    name: 'Проклятый клинок',    type: 'weapon', slot: 'mainHand', tier: 3, price: 210,
     attackBonus: 25, desc: '+25 к атаке.' },
-  { id: 'ws_dragon_fang',     name: 'Клык дракона',        type: 'weapon',   tier: 3, price: 290,
+  { id: 'ws_dragon_fang',     name: 'Клык дракона',        type: 'weapon', slot: 'mainHand', tier: 3, price: 290,
     attackBonus: 32, desc: '+32 к атаке.' },
   // ── TIER 3 ARMOR ────────────────────────────────────────────────────────────
-  { id: 'as_battle_plate',    name: 'Боевые латы',         type: 'armor',    tier: 3, price: 155,
+  { id: 'as_battle_plate',    name: 'Боевые латы',         type: 'armor',  slot: 'armor',    tier: 3, price: 155,
     defenseBonus: 18, desc: '+18 к защите.' },
-  { id: 'as_dragon_scale',    name: 'Чешуя дракона',       type: 'armor',    tier: 3, price: 240,
+  { id: 'as_dragon_scale',    name: 'Чешуя дракона',       type: 'armor',  slot: 'armor',    tier: 3, price: 240,
     defenseBonus: 25, desc: '+25 к защите.' },
-  { id: 'as_guardian_plate',  name: 'Доспех стражника',    type: 'armor',    tier: 3, price: 200,
+  { id: 'as_guardian_plate',  name: 'Доспех стражника',    type: 'armor',  slot: 'armor',    tier: 3, price: 200,
     defenseBonus: 20, maxHpBonus: 40, desc: '+20 защ, +40 HP.' },
   // ── TIER 3 ACCESSORIES ──────────────────────────────────────────────────────
-  { id: 'ac_storm_ring',      name: 'Кольцо бури',         type: 'accessory', tier: 3, price: 160,
+  { id: 'ac_storm_ring',      name: 'Кольцо бури',         type: 'ring',   slot: 'ring1',    tier: 3, price: 160,
     attackBonus: 10, defenseBonus: 6, desc: '+10 атк, +6 защ.' },
-  { id: 'ac_ancient_talisman',name: 'Древний талисман',    type: 'accessory', tier: 3, price: 200,
+  { id: 'ac_ancient_talisman',name: 'Древний талисман',    type: 'ring',   slot: 'ring1',    tier: 3, price: 200,
     attackBonus: 9, defenseBonus: 9, maxHpBonus: 25, desc: '+9 атк, +9 защ, +25 HP.' },
   // ── TIER 3 CONSUMABLES ──────────────────────────────────────────────────────
   { id: 'cs_elixir_life',     name: 'Эликсир жизни',      type: 'consumable', tier: 3, price: 120,
@@ -126,17 +126,17 @@ const SHOP_ITEMS = [
   { id: 'cs_elixir_wisdom',   name: 'Эликсир мудреца',    type: 'consumable', tier: 3, price: 230,
     effect: 'full_mana', desc: 'Полностью восстанавливает ману.' },
   // ── ARTIFACTS ───────────────────────────────────────────────────────────────
-  { id: 'art_shadow_essence',    name: 'Эссенция тени',       type: 'artifact', tier: 2, price: 280,
+  { id: 'art_shadow_essence',    name: 'Эссенция тени',       type: 'ring', slot: 'ring1', tier: 2, price: 280,
     attackBonus: 20, defenseBonus: 8, desc: '+20 атк, +8 защ.' },
-  { id: 'art_death_mask',        name: 'Маска смерти',         type: 'artifact', tier: 3, price: 300,
+  { id: 'art_death_mask',        name: 'Маска смерти',         type: 'ring', slot: 'ring1', tier: 3, price: 300,
     attackBonus: 28, defenseBonus: -5, desc: '+28 атк, -5 защ.' },
-  { id: 'art_blood_chalice',     name: 'Чаша крови',           type: 'artifact', tier: 3, price: 260,
+  { id: 'art_blood_chalice',     name: 'Чаша крови',           type: 'ring', slot: 'ring1', tier: 3, price: 260,
     attackBonus: 32, maxHpBonus: -20, desc: '+32 атк, -20 HP.' },
-  { id: 'art_void_crystal',      name: 'Кристалл пустоты',     type: 'artifact', tier: 3, price: 390,
+  { id: 'art_void_crystal',      name: 'Кристалл пустоты',     type: 'ring', slot: 'ring1', tier: 3, price: 390,
     attackBonus: 15, defenseBonus: 15, maxHpBonus: 35, desc: '+15 атк, +15 защ, +35 HP.' },
-  { id: 'art_heart_of_dungeon',  name: 'Сердце подземелья',    type: 'artifact', tier: 3, price: 500,
+  { id: 'art_heart_of_dungeon',  name: 'Сердце подземелья',    type: 'ring', slot: 'ring1', tier: 3, price: 500,
     attackBonus: 22, defenseBonus: 22, maxHpBonus: 50, desc: '+22 атк, +22 защ, +50 HP.' },
-  { id: 'art_philosophers_stone',name: 'Камень мудреца',       type: 'artifact', tier: 3, price: 450,
+  { id: 'art_philosophers_stone',name: 'Камень мудреца',       type: 'ring', slot: 'ring1', tier: 3, price: 450,
     attackBonus: 18, defenseBonus: 18, maxHpBonus: 50, desc: '+18 атк, +18 защ, +50 HP.' }
 ];
 
@@ -282,19 +282,19 @@ const RIDDLES = [
 ];
 
 const TREASURE_ITEMS = [
-  { id: 'iron_sword', name: 'Железный меч', type: 'weapon', attackBonus: 5 },
-  { id: 'steel_sword', name: 'Стальной меч', type: 'weapon', attackBonus: 10 },
-  { id: 'enchanted_blade', name: 'Зачарованный клинок', type: 'weapon', attackBonus: 15 },
-  { id: 'leather_armor', name: 'Кожаная броня', type: 'armor', defenseBonus: 5 },
-  { id: 'chain_mail', name: 'Кольчуга', type: 'armor', defenseBonus: 10 },
-  { id: 'plate_armor', name: 'Латные доспехи', type: 'armor', defenseBonus: 15 },
-  { id: 'health_potion', name: 'Зелье лечения', type: 'consumable', healAmount: 40 },
-  { id: 'greater_potion', name: 'Большое зелье', type: 'consumable', healAmount: 80 },
-  { id: 'elixir', name: 'Эликсир жизни', type: 'consumable', healAmount: 150 },
-  { id: 'amulet_protection', name: 'Амулет защиты', type: 'accessory', defenseBonus: 7 },
-  { id: 'ring_power', name: 'Кольцо силы', type: 'accessory', attackBonus: 6 },
-  { id: 'mana_potion', name: 'Зелье маны', type: 'consumable', manaAmount: 50 },
-  { id: 'greater_mana_potion', name: 'Большое зелье маны', type: 'consumable', manaAmount: 100 }
+  { id: 'iron_sword',         name: 'Железный меч',       type: 'weapon', slot: 'mainHand', attackBonus: 5 },
+  { id: 'steel_sword',        name: 'Стальной меч',        type: 'weapon', slot: 'mainHand', attackBonus: 10 },
+  { id: 'enchanted_blade',    name: 'Зачарованный клинок', type: 'weapon', slot: 'mainHand', attackBonus: 15 },
+  { id: 'leather_armor',      name: 'Кожаная броня',       type: 'armor',  slot: 'armor',    defenseBonus: 5 },
+  { id: 'chain_mail',         name: 'Кольчуга',            type: 'armor',  slot: 'armor',    defenseBonus: 10 },
+  { id: 'plate_armor',        name: 'Латные доспехи',      type: 'armor',  slot: 'armor',    defenseBonus: 15 },
+  { id: 'health_potion',      name: 'Зелье лечения',       type: 'consumable', healAmount: 40 },
+  { id: 'greater_potion',     name: 'Большое зелье',       type: 'consumable', healAmount: 80 },
+  { id: 'elixir',             name: 'Эликсир жизни',       type: 'consumable', healAmount: 150 },
+  { id: 'amulet_protection',  name: 'Амулет защиты',       type: 'ring',   slot: 'ring1',    defenseBonus: 7 },
+  { id: 'ring_power',         name: 'Кольцо силы',         type: 'ring',   slot: 'ring1',    attackBonus: 6 },
+  { id: 'mana_potion',        name: 'Зелье маны',          type: 'consumable', manaAmount: 50 },
+  { id: 'greater_mana_potion',name: 'Большое зелье маны',  type: 'consumable', manaAmount: 100 }
 ];
 
 const ROOM_DESCRIPTIONS = {
@@ -457,7 +457,7 @@ function buildWindingConnections(rooms) {
       targets.forEach(to => {
         reached.add(to);
         //вероятность нахождения закрытой комнаты
-        const locked = from > 0 && rooms[to].type !== 'boss' && Math.random() < 0.30;
+        const locked = from > 0 && rooms[to].type !== 'boss' && Math.random() < 0.15;
         rooms[from].connections.push({ to, direction: 'straight', locked });
       });
     }
@@ -466,7 +466,7 @@ function buildWindingConnections(rooms) {
     for (const to of toLayer) {
       if (!reached.has(to)) {
         const src = fromLayer[Math.floor(Math.random() * fromLayer.length)];
-        const locked = src > 0 && rooms[to].type !== 'boss' && Math.random() < 0.30;
+        const locked = src > 0 && rooms[to].type !== 'boss' && Math.random() < 0.15;
         rooms[src].connections.push({ to, direction: 'straight', locked });
         reached.add(to);
       }
@@ -479,7 +479,7 @@ function buildWindingConnections(rooms) {
           const alreadyConnected = new Set(rooms[from].connections.map(c => c.to));
           for (const to of toLayer) {
             if (!alreadyConnected.has(to)) {
-              const locked = from > 0 && rooms[to].type !== 'boss' && Math.random() < 0.30;
+              const locked = from > 0 && rooms[to].type !== 'boss' && Math.random() < 0.15;
               rooms[from].connections.push({ to, direction: 'straight', locked });
               break;
             }

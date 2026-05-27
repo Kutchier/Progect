@@ -214,44 +214,58 @@ io.on('connection', (socket) => {
   socket.on('collect_loot', ({ itemId }, cb) => {
     const room = rooms.get(socket.data.roomId);
     if (!room) return cb?.({ ok: false });
+    if (room.phase !== GAME_PHASE.PLAYING) return cb?.({ ok: false, reason: 'Сейчас нельзя подбирать предметы.' });
 
     const currentRoom = room.floor?.rooms[room.floor.currentRoomIndex];
-    if (!currentRoom?.loot) return cb?.({ ok: false });
+    if (!currentRoom?.loot || currentRoom.type !== 'treasure') return cb?.({ ok: false });
+
+    const player = room.players[socket.id];
+    if (!player?.character?.isAlive) return cb?.({ ok: false, reason: 'Мёртвые не подбирают предметы.' });
 
     const itemIdx = currentRoom.loot.findIndex(i => i.id === itemId);
-    if (itemIdx === -1) return cb?.({ ok: false });
+    if (itemIdx === -1) return cb?.({ ok: false, reason: 'Предмет не найден.' });
 
-    const item = currentRoom.loot.splice(itemIdx, 1)[0];
-    const player = room.players[socket.id];
-    if (!player?.character) return cb?.({ ok: false });
+    const item = currentRoom.loot[itemIdx];
+    const MAX_BAG = 12;
+    if (item.type !== 'gold') {
+      if ((player.character.inventory?.length || 0) >= MAX_BAG) {
+        return cb?.({ ok: false, reason: `Рюкзак заполнен! Максимум ${MAX_BAG} предметов.` });
+      }
+    }
+
+    currentRoom.loot.splice(itemIdx, 1);
 
     if (item.type === 'gold') {
       player.character.gold += item.amount;
       room.addLog(`${player.name} подбирает ${item.amount} золота.`);
     } else {
-      const MAX_INV = 8;
-      if ((player.character.inventory?.length || 0) >= MAX_INV) {
-        return cb?.({ ok: false, reason: `Инвентарь заполнен! Максимум ${MAX_INV} предметов.` });
-      }
-      const isGear = item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory' || item.type === 'artifact';
-      if (isGear) {
-        if (item.attackBonus)  player.character.attack  += item.attackBonus;
-        if (item.defenseBonus) player.character.defense  = Math.max(0, player.character.defense + item.defenseBonus);
-        if (item.maxHpBonus)  { player.character.maxHp += item.maxHpBonus; player.character.hp += item.maxHpBonus; }
-        const stats = [];
-        if (item.attackBonus)  stats.push(`⚔+${item.attackBonus}`);
-        if (item.defenseBonus) stats.push(`🛡${item.defenseBonus > 0 ? '+' : ''}${item.defenseBonus}`);
-        if (item.maxHpBonus)   stats.push(`❤+${item.maxHpBonus}`);
-        player.character.inventory.push({ ...item, statsApplied: true });
-        room.addLog(`${player.name} подбирает: ${item.name}${stats.length ? ` [${stats.join(' ')}]` : ''}`);
-      } else {
-        player.character.inventory.push(item);
-        room.addLog(`${player.name} подбирает: ${item.name}`);
-      }
+      // Items go to bag — player equips manually
+      player.character.inventory.push({ ...item });
+      const rarityNames = { common: 'Обычный', uncommon: 'Необычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный' };
+      const rar = item.rarity ? ` [${rarityNames[item.rarity] || ''}]` : '';
+      room.addLog(`${player.name} подбирает: ${item.name}${rar}.`);
     }
 
     io.to(room.id).emit('room_update', room.getClientState());
     cb?.({ ok: true });
+  });
+
+  socket.on('equip_item', ({ itemId, slot }, cb) => {
+    const room = rooms.get(socket.data.roomId);
+    if (!room) return cb?.({ ok: false, reason: 'Комната не найдена.' });
+    if (room.phase !== GAME_PHASE.PLAYING) return cb?.({ ok: false, reason: 'Неверная фаза.' });
+    const result = room.equipItem(socket.id, itemId, slot || null);
+    if (result.ok) io.to(room.id).emit('room_update', room.getClientState());
+    cb?.(result);
+  });
+
+  socket.on('unequip_item', ({ slot }, cb) => {
+    const room = rooms.get(socket.data.roomId);
+    if (!room) return cb?.({ ok: false, reason: 'Комната не найдена.' });
+    if (room.phase !== GAME_PHASE.PLAYING) return cb?.({ ok: false, reason: 'Неверная фаза.' });
+    const result = room.unequipItem(socket.id, slot);
+    if (result.ok) io.to(room.id).emit('room_update', room.getClientState());
+    cb?.(result);
   });
 
   socket.on('buy_item', ({ itemId }, cb) => {

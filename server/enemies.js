@@ -1,5 +1,23 @@
 'use strict';
 
+const { getItemById } = require('./items');
+
+// Helper: build a loot entry from items.js (adds chance field)
+function itemLoot(id, chance) {
+  const item = getItemById(id);
+  if (!item) return null;
+  return { ...item, chance };
+}
+
+// Common consumables (standalone, no class restriction)
+const POTION_SMALL  = { id: 'health_potion',  name: 'Зелье лечения',   type: 'consumable', healAmount: 35,  chance: 0.22 };
+const POTION_MED    = { id: 'greater_potion',  name: 'Большое зелье',   type: 'consumable', healAmount: 70,  chance: 0.15 };
+const ANTIDOTE      = { id: 'antidote',        name: 'Противоядие',     type: 'consumable', curesPoison: true, chance: 0.20 };
+const MANA_SMALL    = { id: 'mana_potion',     name: 'Зелье маны',      type: 'consumable', manaAmount: 50,  chance: 0.18 };
+const SPELL_SCROLL  = { id: 'spell_scroll',    name: 'Свиток заклинания', type: 'consumable', effect: 'random_spell', chance: 0.18 };
+const ELIXIR_FULL   = { id: 'soul_gem',        name: 'Камень душ',      type: 'consumable', effect: 'full_heal', chance: 0.25 };
+const MANA_LARGE    = { id: 'mana_large',      name: 'Большое зелье маны', type: 'consumable', manaAmount: 100, chance: 0.22 };
+
 const ENEMY_TYPES = {
   // ── TIER 1 ───────────────────────────────────────────────────────────────────
   goblin: {
@@ -9,9 +27,10 @@ const ENEMY_TYPES = {
     expReward: 15, goldReward: [3, 8], isUndead: false,
     abilities: ['attack'],
     lootTable: [
-      { id: 'health_potion', name: 'Зелье лечения', type: 'consumable', healAmount: 30, chance: 0.2 },
-      { id: 'rusty_dagger', name: 'Ржавый кинжал', type: 'weapon', attackBonus: 2, chance: 0.1 }
-    ],
+      POTION_SMALL,
+      itemLoot('ring_copper_atk', 0.08),
+      itemLoot('boots_leather', 0.06)
+    ].filter(Boolean),
     ai: 'random'
   },
 
@@ -22,9 +41,10 @@ const ENEMY_TYPES = {
     expReward: 20, goldReward: [5, 12], isUndead: true,
     abilities: ['attack'],
     lootTable: [
-      { id: 'bone_shield', name: 'Костяной щит', type: 'armor', defenseBonus: 3, chance: 0.15 },
-      { id: 'health_potion', name: 'Зелье лечения', type: 'consumable', healAmount: 30, chance: 0.15 }
-    ],
+      POTION_SMALL,
+      itemLoot('helmet_leather', 0.10),
+      itemLoot('amulet_bone', 0.08)
+    ].filter(Boolean),
     ai: 'low_hp_target'
   },
 
@@ -35,8 +55,9 @@ const ENEMY_TYPES = {
     expReward: 12, goldReward: [2, 6], isUndead: false,
     abilities: ['attack', 'poison_bite'],
     lootTable: [
-      { id: 'antidote', name: 'Противоядие', type: 'consumable', curesPoison: true, chance: 0.2 }
-    ],
+      ANTIDOTE,
+      itemLoot('pants_leather', 0.06)
+    ].filter(Boolean),
     ai: 'random'
   },
 
@@ -47,8 +68,9 @@ const ENEMY_TYPES = {
     expReward: 10, goldReward: [2, 5], isUndead: false,
     abilities: ['attack', 'stun_bash'],
     lootTable: [
-      { id: 'bat_wing', name: 'Крыло летучей мыши', type: 'consumable', healAmount: 10, chance: 0.15 }
-    ],
+      POTION_SMALL,
+      itemLoot('ring_copper_def', 0.07)
+    ].filter(Boolean),
     ai: 'random'
   },
 
@@ -59,9 +81,10 @@ const ENEMY_TYPES = {
     expReward: 18, goldReward: [4, 10], isUndead: false,
     abilities: ['attack', 'throw_trap'],
     lootTable: [
-      { id: 'crude_spear', name: 'Грубое копьё', type: 'weapon', attackBonus: 3, chance: 0.15 },
-      { id: 'health_potion', name: 'Зелье лечения', type: 'consumable', healAmount: 25, chance: 0.2 }
-    ],
+      POTION_SMALL,
+      itemLoot('armor_leather', 0.08),
+      itemLoot('boots_leather', 0.07)
+    ].filter(Boolean),
     ai: 'random'
   },
 
@@ -73,9 +96,11 @@ const ENEMY_TYPES = {
     expReward: 30, goldReward: [8, 15], isUndead: true,
     abilities: ['attack', 'poison_bite'],
     lootTable: [
-      { id: 'antidote', name: 'Противоядие', type: 'consumable', curesPoison: true, chance: 0.25 },
-      { id: 'torn_armor', name: 'Рваная броня', type: 'armor', defenseBonus: 4, chance: 0.12 }
-    ],
+      ANTIDOTE,
+      itemLoot('armor_leather', 0.12),
+      itemLoot('pants_leather', 0.10),
+      itemLoot('helmet_steel', 0.06)
+    ].filter(Boolean),
     ai: 'low_hp_target'
   },
 
@@ -86,10 +111,12 @@ const ENEMY_TYPES = {
     expReward: 40, goldReward: [10, 20], isUndead: false,
     abilities: ['attack', 'fireball', 'curse'],
     lootTable: [
-      { id: 'spell_scroll', name: 'Свиток заклинания', type: 'consumable', effect: 'random_spell', chance: 0.3 },
-      { id: 'mage_robe', name: 'Мантия мага', type: 'armor', defenseBonus: 2, attackBonus: 5, chance: 0.15 },
-      { id: 'mana_potion', name: 'Зелье маны', type: 'consumable', manaAmount: 50, chance: 0.35 }
-    ],
+      SPELL_SCROLL,
+      MANA_SMALL,
+      itemLoot('staff_wooden', 0.12),
+      itemLoot('tome_spells', 0.08),
+      itemLoot('ring_silver', 0.07)
+    ].filter(Boolean),
     ai: 'low_hp_target'
   },
 
@@ -100,9 +127,11 @@ const ENEMY_TYPES = {
     expReward: 35, goldReward: [8, 18], isUndead: false,
     abilities: ['attack', 'feral_bite', 'howl'],
     lootTable: [
-      { id: 'wolf_pelt', name: 'Волчья шкура', type: 'armor', defenseBonus: 5, chance: 0.2 },
-      { id: 'health_potion', name: 'Зелье лечения', type: 'consumable', healAmount: 40, chance: 0.25 }
-    ],
+      POTION_MED,
+      itemLoot('armor_chain', 0.10),
+      itemLoot('boots_steel', 0.09),
+      itemLoot('amulet_lucky', 0.08)
+    ].filter(Boolean),
     ai: 'random'
   },
 
@@ -113,9 +142,11 @@ const ENEMY_TYPES = {
     expReward: 28, goldReward: [6, 14], isUndead: false,
     abilities: ['attack', 'poison_bite', 'web_trap'],
     lootTable: [
-      { id: 'venom_gland', name: 'Ядовитая железа', type: 'consumable', poisonEffect: { value: 0.08, duration: 3 }, chance: 0.25 },
-      { id: 'spider_silk_armor', name: 'Паучий шёлк', type: 'armor', defenseBonus: 4, chance: 0.15 }
-    ],
+      ANTIDOTE,
+      itemLoot('pants_reinforced', 0.10),
+      itemLoot('dagger_shadow', 0.07),
+      itemLoot('ring_silver', 0.06)
+    ].filter(Boolean),
     ai: 'low_hp_target'
   },
 
@@ -126,8 +157,10 @@ const ENEMY_TYPES = {
     expReward: 35, goldReward: [5, 12], isUndead: true,
     abilities: ['attack', 'shadow_bind', 'drain'],
     lootTable: [
-      { id: 'shadow_essence_drop', name: 'Сгусток тьмы', type: 'consumable', attackBuff: { value: 0.25, duration: 2 }, chance: 0.2 }
-    ],
+      { id: 'shadow_essence', name: 'Сгусток тьмы', type: 'consumable', attackBuff: { value: 0.25, duration: 2 }, chance: 0.20 },
+      itemLoot('boots_wind', 0.07),
+      itemLoot('helmet_shadow', 0.04)
+    ].filter(Boolean),
     ai: 'random'
   },
 
@@ -139,9 +172,11 @@ const ENEMY_TYPES = {
     expReward: 60, goldReward: [15, 30], isUndead: false,
     abilities: ['attack', 'heavy_blow', 'regenerate'],
     lootTable: [
-      { id: 'troll_club', name: 'Дубина тролля', type: 'weapon', attackBonus: 10, chance: 0.15 },
-      { id: 'health_potion', name: 'Зелье лечения', type: 'consumable', healAmount: 50, chance: 0.3 }
-    ],
+      POTION_MED,
+      itemLoot('armor_plate', 0.12),
+      itemLoot('helmet_horned', 0.09),
+      itemLoot('ring_gold', 0.07)
+    ].filter(Boolean),
     ai: 'random'
   },
 
@@ -152,9 +187,11 @@ const ENEMY_TYPES = {
     expReward: 70, goldReward: [20, 40], isUndead: true,
     abilities: ['attack', 'blood_drain', 'charm'],
     lootTable: [
-      { id: 'vampiric_fang', name: 'Клык вампира', type: 'weapon', attackBonus: 8, lifesteal: 0.2, chance: 0.2 },
-      { id: 'crimson_cloak', name: 'Алый плащ', type: 'armor', defenseBonus: 5, chance: 0.15 }
-    ],
+      POTION_MED,
+      itemLoot('blade_twin', 0.10),
+      itemLoot('amulet_protection', 0.09),
+      itemLoot('boots_shadow', 0.05)
+    ].filter(Boolean),
     ai: 'low_hp_target'
   },
 
@@ -165,9 +202,11 @@ const ENEMY_TYPES = {
     expReward: 55, goldReward: [15, 28], isUndead: true,
     abilities: ['attack', 'death_bolt', 'heavy_blow'],
     lootTable: [
-      { id: 'cursed_sword_drop', name: 'Проклятый меч', type: 'weapon', attackBonus: 12, chance: 0.15 },
-      { id: 'black_plate', name: 'Чёрные латы', type: 'armor', defenseBonus: 10, chance: 0.12 }
-    ],
+      itemLoot('axe_battle', 0.12),
+      itemLoot('armor_plate', 0.11),
+      itemLoot('helmet_horned', 0.09),
+      itemLoot('ring_gold', 0.07)
+    ].filter(Boolean),
     ai: 'low_hp_target'
   },
 
@@ -178,9 +217,11 @@ const ENEMY_TYPES = {
     expReward: 65, goldReward: [12, 25], isUndead: false,
     abilities: ['attack', 'heavy_blow'],
     lootTable: [
-      { id: 'golem_core', name: 'Ядро голема', type: 'accessory', defenseBonus: 8, maxHpBonus: 20, chance: 0.15 },
-      { id: 'stone_shard', name: 'Осколок камня', type: 'armor', defenseBonus: 6, chance: 0.2 }
-    ],
+      itemLoot('armor_scale', 0.10),
+      itemLoot('pants_plate', 0.10),
+      itemLoot('amulet_protection', 0.09),
+      itemLoot('ring_arcane', 0.05)
+    ].filter(Boolean),
     ai: 'random'
   },
 
@@ -191,9 +232,11 @@ const ENEMY_TYPES = {
     expReward: 58, goldReward: [14, 28], isUndead: false,
     abilities: ['attack', 'wing_buffet', 'screech'],
     lootTable: [
-      { id: 'harpy_talon', name: 'Коготь гарпии', type: 'weapon', attackBonus: 9, chance: 0.2 },
-      { id: 'feather_cloak', name: 'Плащ из перьев', type: 'armor', defenseBonus: 6, chance: 0.15 }
-    ],
+      itemLoot('boots_wind', 0.12),
+      itemLoot('blade_twin', 0.09),
+      itemLoot('pants_shadow', 0.06),
+      itemLoot('ring_arcane', 0.05)
+    ].filter(Boolean),
     ai: 'low_hp_target'
   },
 
@@ -205,10 +248,13 @@ const ENEMY_TYPES = {
     expReward: 100, goldReward: [30, 60], isUndead: true,
     abilities: ['attack', 'death_bolt', 'raise_dead', 'curse'],
     lootTable: [
-      { id: 'lich_staff', name: 'Посох Лича', type: 'weapon', attackBonus: 15, chance: 0.2 },
-      { id: 'soul_gem', name: 'Камень душ', type: 'consumable', effect: 'full_heal', chance: 0.25 },
-      { id: 'greater_mana_potion', name: 'Большое зелье маны', type: 'consumable', manaAmount: 100, chance: 0.4 }
-    ],
+      ELIXIR_FULL,
+      MANA_LARGE,
+      itemLoot('staff_frost', 0.15),
+      itemLoot('staff_arcane', 0.08),
+      itemLoot('ring_arcane', 0.10),
+      itemLoot('helmet_shadow', 0.08)
+    ].filter(Boolean),
     ai: 'low_hp_target'
   },
 
@@ -219,9 +265,12 @@ const ENEMY_TYPES = {
     expReward: 130, goldReward: [40, 80], isUndead: false,
     abilities: ['attack', 'hellfire', 'shadow_bind', 'devour'],
     lootTable: [
-      { id: 'demon_blade', name: 'Клинок демона', type: 'weapon', attackBonus: 18, chance: 0.2 },
-      { id: 'infernal_armor', name: 'Адская броня', type: 'armor', defenseBonus: 12, chance: 0.15 }
-    ],
+      itemLoot('sword_flaming', 0.12),
+      itemLoot('blade_venom', 0.10),
+      itemLoot('armor_scale', 0.10),
+      itemLoot('amulet_dragon', 0.08),
+      itemLoot('ring_arcane', 0.07)
+    ].filter(Boolean),
     ai: 'random'
   },
 
@@ -232,10 +281,13 @@ const ENEMY_TYPES = {
     expReward: 85, goldReward: [22, 45], isUndead: false,
     abilities: ['attack', 'curse', 'hellfire', 'raise_dead'],
     lootTable: [
-      { id: 'witches_brew', name: 'Варево ведьмы', type: 'consumable', effect: 'full_heal', chance: 0.2 },
-      { id: 'hex_amulet', name: 'Амулет проклятия', type: 'accessory', attackBonus: 12, defenseBonus: -2, chance: 0.15 },
-      { id: 'mana_potion', name: 'Зелье маны', type: 'consumable', manaAmount: 50, chance: 0.3 }
-    ],
+      ELIXIR_FULL,
+      MANA_LARGE,
+      itemLoot('staff_arcane', 0.10),
+      itemLoot('scepter_divine', 0.08),
+      itemLoot('amulet_dragon', 0.09),
+      itemLoot('boots_shadow', 0.08)
+    ].filter(Boolean),
     ai: 'low_hp_target'
   },
 
@@ -246,9 +298,11 @@ const ENEMY_TYPES = {
     expReward: 110, goldReward: [30, 65], isUndead: false,
     abilities: ['attack', 'heavy_blow', 'ice_breath'],
     lootTable: [
-      { id: 'frost_club', name: 'Дубина великана', type: 'weapon', attackBonus: 16, chance: 0.15 },
-      { id: 'frost_armor', name: 'Ледяная броня', type: 'armor', defenseBonus: 14, chance: 0.15 }
-    ],
+      itemLoot('armor_scale', 0.14),
+      itemLoot('axe_battle', 0.12),
+      itemLoot('pants_legendary', 0.06),
+      itemLoot('ring_arcane', 0.08)
+    ].filter(Boolean),
     ai: 'random'
   },
 
@@ -259,9 +313,12 @@ const ENEMY_TYPES = {
     expReward: 120, goldReward: [35, 70], isUndead: false,
     abilities: ['attack', 'hellfire', 'shadow_bind', 'devour'],
     lootTable: [
-      { id: 'nightmare_essence', name: 'Эссенция кошмара', type: 'consumable', attackBuff: { value: 0.6, duration: 2 }, chance: 0.2 },
-      { id: 'shadow_hoof', name: 'Теневое копыто', type: 'weapon', attackBonus: 14, chance: 0.15 }
-    ],
+      { id: 'nightmare_essence', name: 'Эссенция кошмара', type: 'consumable', attackBuff: { value: 0.6, duration: 2 }, chance: 0.20 },
+      itemLoot('blade_venom', 0.10),
+      itemLoot('boots_shadow', 0.09),
+      itemLoot('ring_arcane', 0.08),
+      itemLoot('amulet_dragon', 0.07)
+    ].filter(Boolean),
     ai: 'low_hp_target'
   },
 
@@ -273,10 +330,15 @@ const ENEMY_TYPES = {
     expReward: 500, goldReward: [100, 200], isUndead: false, isBoss: true,
     abilities: ['attack', 'dragon_breath', 'tail_sweep', 'wing_buffet', 'devour'],
     lootTable: [
-      { id: 'dragon_scale', name: 'Чешуя дракона', type: 'armor', defenseBonus: 20, chance: 1.0 },
-      { id: 'dragon_fang', name: 'Клык дракона', type: 'weapon', attackBonus: 25, chance: 1.0 },
-      { id: 'soul_gem', name: 'Камень душ', type: 'consumable', effect: 'full_heal', chance: 1.0 }
-    ],
+      ELIXIR_FULL,
+      itemLoot('armor_dragon', 1.0),
+      itemLoot('sword_doom', 0.60),
+      itemLoot('blade_death', 0.60),
+      itemLoot('staff_void', 0.60),
+      itemLoot('weapon_judgment', 0.60),
+      itemLoot('ring_destiny', 0.80),
+      itemLoot('amulet_void', 0.80)
+    ].filter(Boolean),
     ai: 'tactical'
   },
 
@@ -287,9 +349,12 @@ const ENEMY_TYPES = {
     expReward: 400, goldReward: [80, 150], isUndead: false, isBoss: true,
     abilities: ['attack', 'poison_spray', 'spawn_spiders', 'web_trap'],
     lootTable: [
-      { id: 'spider_silk', name: 'Паучий шёлк', type: 'armor', defenseBonus: 15, chance: 1.0 },
-      { id: 'venom_fang', name: 'Ядовитый клык', type: 'weapon', attackBonus: 15, poison: true, chance: 1.0 }
-    ],
+      ELIXIR_FULL,
+      itemLoot('blade_venom', 1.0),
+      itemLoot('armor_scale', 1.0),
+      itemLoot('boots_shadow', 0.80),
+      itemLoot('amulet_dragon', 0.80)
+    ].filter(Boolean),
     ai: 'tactical'
   },
 
@@ -300,10 +365,15 @@ const ENEMY_TYPES = {
     expReward: 700, goldReward: [120, 280], isUndead: false, isBoss: true,
     abilities: ['attack', 'hellfire', 'death_bolt', 'dragon_breath', 'devour', 'chaos_bolt'],
     lootTable: [
-      { id: 'chaos_shard', name: 'Осколок хаоса', type: 'artifact', attackBonus: 25, defenseBonus: 10, maxHpBonus: 40, chance: 1.0 },
-      { id: 'lords_crown', name: 'Корона Повелителя', type: 'accessory', attackBonus: 20, defenseBonus: 15, chance: 1.0 },
-      { id: 'chaos_elixir', name: 'Эликсир хаоса', type: 'consumable', effect: 'full_heal', chance: 1.0 }
-    ],
+      ELIXIR_FULL,
+      itemLoot('sword_doom', 1.0),
+      itemLoot('blade_death', 1.0),
+      itemLoot('staff_void', 1.0),
+      itemLoot('weapon_judgment', 1.0),
+      itemLoot('helmet_crown', 1.0),
+      itemLoot('ring_destiny', 1.0),
+      itemLoot('amulet_void', 1.0)
+    ].filter(Boolean),
     ai: 'tactical'
   }
 };

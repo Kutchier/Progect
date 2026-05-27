@@ -798,6 +798,494 @@ art_philosophers_stone:`<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/s
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  GRAPHICAL INVENTORY SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Rarity colors
+const RARITY_CFG = {
+  common:    { name: 'Обычный',     color: '#9a9a9a', border: '#5a5a5a', glow: 'rgba(154,154,154,0.25)' },
+  uncommon:  { name: 'Необычный',   color: '#1ec94e', border: '#0d6626', glow: 'rgba(30,201,78,0.3)'   },
+  rare:      { name: 'Редкий',      color: '#e03030', border: '#801010', glow: 'rgba(224,48,48,0.4)'   },
+  epic:      { name: 'Эпический',   color: '#b035e0', border: '#601895', glow: 'rgba(176,53,224,0.45)' },
+  legendary: { name: 'Легендарный', color: '#e0a800', border: '#905a00', glow: 'rgba(224,168,0,0.55)'  }
+};
+
+// SVG icons per item iconKey
+const EQUIP_ICONS = {
+  helmet: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <path d="M8,32 Q8,18 22,12 Q36,18 36,32 L36,36 L8,36Z" fill="currentColor" opacity="0.9"/>
+    <path d="M10,32 Q10,20 22,15 Q34,20 34,32" fill="none" stroke="white" stroke-width="1" opacity="0.3"/>
+    <rect x="6" y="33" width="32" height="5" rx="2" fill="currentColor"/>
+    <rect x="16" y="36" width="12" height="6" rx="1" fill="currentColor" opacity="0.7"/>
+  </svg>`,
+  armor: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <path d="M8,8 L6,14 L6,36 Q22,41 38,36 L38,14 L36,8 Q28,14 22,14 Q16,14 8,8Z" fill="currentColor" opacity="0.85"/>
+    <line x1="22" y1="13" x2="22" y2="37" stroke="white" stroke-width="1" opacity="0.25"/>
+    <line x1="6" y1="24" x2="38" y2="24" stroke="white" stroke-width="0.8" opacity="0.2"/>
+    <path d="M8,8 L12,6 M36,8 L32,6" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+  </svg>`,
+  pants: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <rect x="8" y="4" width="28" height="14" rx="2" fill="currentColor" opacity="0.85"/>
+    <rect x="8" y="17" width="12" height="24" rx="2" fill="currentColor" opacity="0.8"/>
+    <rect x="24" y="17" width="12" height="24" rx="2" fill="currentColor" opacity="0.8"/>
+    <line x1="20" y1="17" x2="22" y2="41" stroke="white" stroke-width="1" opacity="0.2"/>
+    <line x1="8" y1="17" x2="36" y2="17" stroke="white" stroke-width="1.5" opacity="0.3"/>
+  </svg>`,
+  boots: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <path d="M14,6 L14,28 Q14,36 8,38 L36,38 Q34,34 28,34 L28,6Z" fill="currentColor" opacity="0.85"/>
+    <line x1="14" y1="22" x2="28" y2="22" stroke="white" stroke-width="1" opacity="0.3"/>
+    <path d="M8,38 L36,38" stroke="white" stroke-width="1.5" opacity="0.4"/>
+  </svg>`,
+  sword: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <path d="M21,3 L23,3 L25,32 L22,35 L19,32Z" fill="currentColor" opacity="0.9"/>
+    <path d="M22,3 L23,16 L22,19 L21,16Z" fill="white" opacity="0.4"/>
+    <rect x="13" y="32" width="18" height="4" rx="2" fill="currentColor" opacity="0.8"/>
+    <rect x="20.5" y="36" width="3" height="7" rx="1" fill="currentColor" opacity="0.7"/>
+    <circle cx="22" cy="43" r="2.5" fill="currentColor" opacity="0.7"/>
+  </svg>`,
+  axe: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <rect x="20.5" y="8" width="3" height="30" rx="1.5" fill="currentColor" opacity="0.7"/>
+    <path d="M23.5,8 Q38,5 38,18 Q38,25 23.5,22Z" fill="currentColor" opacity="0.9"/>
+    <path d="M23.5,9 Q36,7 36,18 Q36,24 23.5,21Z" fill="white" opacity="0.25"/>
+    <circle cx="22" cy="6" r="4" fill="currentColor" opacity="0.7"/>
+    <circle cx="22" cy="38" r="3.5" fill="currentColor" opacity="0.7"/>
+  </svg>`,
+  dagger: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <path d="M22,3 L24,28 L22,30 L20,28Z" fill="currentColor" opacity="0.9"/>
+    <path d="M22,3 L23,14 L22,17 L21,14Z" fill="white" opacity="0.4"/>
+    <rect x="15" y="28" width="14" height="3.5" rx="1.5" fill="currentColor" opacity="0.8"/>
+    <rect x="20.5" y="31.5" width="3" height="10" rx="1" fill="currentColor" opacity="0.7"/>
+    <ellipse cx="22" cy="42" rx="3" ry="2" fill="currentColor" opacity="0.7"/>
+  </svg>`,
+  staff: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <rect x="20.5" y="11" width="3" height="31" rx="1.5" fill="currentColor" opacity="0.8"/>
+    <circle cx="22" cy="8" r="8" fill="#060a14" stroke="currentColor" stroke-width="2"/>
+    <circle cx="22" cy="8" r="5" fill="currentColor" opacity="0.3"/>
+    <circle cx="22" cy="8" r="2.5" fill="currentColor" opacity="0.7"/>
+    <line x1="22" y1="0" x2="22" y2="16" stroke="currentColor" stroke-width="0.8" opacity="0.5"/>
+    <line x1="14" y1="8" x2="30" y2="8" stroke="currentColor" stroke-width="0.8" opacity="0.5"/>
+  </svg>`,
+  tome: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <rect x="7" y="4" width="26" height="36" rx="2" fill="currentColor" opacity="0.85"/>
+    <rect x="9" y="6" width="22" height="32" rx="1" fill="#080c18"/>
+    <rect x="5" y="4" width="4" height="36" rx="1" fill="currentColor" opacity="0.6"/>
+    <line x1="12" y1="14" x2="28" y2="14" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+    <line x1="12" y1="20" x2="28" y2="20" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+    <line x1="12" y1="26" x2="24" y2="26" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+    <circle cx="22" cy="32" r="4" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+    <circle cx="22" cy="32" r="1.5" fill="currentColor" opacity="0.6"/>
+  </svg>`,
+  mace: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <rect x="20.5" y="18" width="3" height="23" rx="1.5" fill="currentColor" opacity="0.7"/>
+    <circle cx="22" cy="13" r="10" fill="currentColor" opacity="0.8"/>
+    <circle cx="22" cy="13" r="7" fill="#080c18"/>
+    <line x1="22" y1="3" x2="22" y2="23" stroke="currentColor" stroke-width="2.5" opacity="0.7"/>
+    <line x1="12" y1="13" x2="32" y2="13" stroke="currentColor" stroke-width="2.5" opacity="0.7"/>
+    <line x1="14.5" y1="5.5" x2="29.5" y2="20.5" stroke="currentColor" stroke-width="2" opacity="0.7"/>
+    <line x1="29.5" y1="5.5" x2="14.5" y2="20.5" stroke="currentColor" stroke-width="2" opacity="0.7"/>
+    <circle cx="22" cy="41" r="3" fill="currentColor" opacity="0.7"/>
+  </svg>`,
+  ring: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="22" cy="22" r="14" fill="none" stroke="currentColor" stroke-width="5"/>
+    <circle cx="22" cy="22" r="11" fill="none" stroke="white" stroke-width="0.5" opacity="0.2"/>
+    <ellipse cx="22" cy="10" rx="5" ry="4" fill="currentColor" opacity="0.9"/>
+    <ellipse cx="22" cy="10" rx="3" ry="2.5" fill="#080c18"/>
+    <circle cx="22" cy="10" r="1.5" fill="currentColor" opacity="0.8"/>
+  </svg>`,
+  amulet: `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <path d="M22,4 Q30,4 30,4 L34,6" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.6"/>
+    <path d="M22,4 Q14,4 14,4 L10,6" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.6"/>
+    <circle cx="22" cy="26" r="14" fill="currentColor" opacity="0.75"/>
+    <circle cx="22" cy="26" r="10" fill="#080c18"/>
+    <polygon points="22,16 26,23 35,23 28,28 31,35 22,30 13,35 16,28 9,23 18,23" fill="currentColor" opacity="0.7"/>
+    <circle cx="22" cy="26" r="3" fill="currentColor" opacity="0.9"/>
+  </svg>`
+};
+
+// Build an item icon box HTML with rarity styling
+function buildItemIcon(item, size = 54) {
+  if (!item) return '';
+  const rc = RARITY_CFG[item.rarity] || RARITY_CFG.common;
+  const iconKey = item.iconKey || 'ring';
+  const svg = EQUIP_ICONS[iconKey] || EQUIP_ICONS.ring;
+  return `
+    <div class="equip-icon-box" style="
+      width:${size}px;height:${size}px;
+      border:2px solid ${rc.border};
+      box-shadow: 0 0 8px ${rc.glow}, inset 0 0 12px rgba(0,0,0,0.7);
+      background: radial-gradient(circle at 40% 30%, rgba(255,255,255,0.04) 0%, #06080e 70%);
+      border-radius:6px; display:flex; align-items:center; justify-content:center;
+      position:relative; overflow:hidden; cursor:pointer;
+    ">
+      <div style="color:${rc.color}; width:${size-12}px; height:${size-12}px;">${svg}</div>
+      <div style="
+        position:absolute; bottom:1px; right:2px;
+        font-size:8px; color:${rc.color}; font-weight:700; letter-spacing:0px;
+        text-shadow: 0 0 6px ${rc.glow};
+      ">${rc.name.charAt(0)}</div>
+    </div>
+  `;
+}
+
+// Build an empty slot HTML
+function buildEmptySlot(slotKey, slotName, size = 54) {
+  return `
+    <div class="equip-slot-empty" data-slot="${slotKey}" style="
+      width:${size}px; height:${size}px; border:2px dashed #2a3550;
+      border-radius:6px; display:flex; align-items:center; justify-content:center;
+      background:#050a14; cursor:pointer; flex-direction:column; gap:2px;
+    " title="${slotName}" onclick="handleSlotClick('${slotKey}')">
+      <div style="font-size:18px; opacity:0.25">${getSlotEmoji(slotKey)}</div>
+      <div style="font-size:8px; color:#2a3550; letter-spacing:0.5px">${slotName.split(' ')[0].toUpperCase()}</div>
+    </div>
+  `;
+}
+
+function getSlotEmoji(slot) {
+  const map = { helmet:'⛑', armor:'🛡', pants:'🩲', boots:'👢', mainHand:'⚔', offHand:'🗡', ring1:'💍', ring2:'✨' };
+  return map[slot] || '○';
+}
+
+// Build a complete slot (with or without item)
+function buildSlot(slotKey, slotName, item, size = 54) {
+  if (!item) return buildEmptySlot(slotKey, slotName, size);
+  const rc = RARITY_CFG[item.rarity] || RARITY_CFG.common;
+  const iconKey = item.iconKey || 'ring';
+  const svg = EQUIP_ICONS[iconKey] || EQUIP_ICONS.ring;
+  return `
+    <div class="equip-slot-filled" data-slot="${slotKey}" style="
+      width:${size}px;height:${size}px;
+      border:2px solid ${rc.border};
+      box-shadow: 0 0 10px ${rc.glow}, inset 0 0 12px rgba(0,0,0,0.7);
+      background: radial-gradient(circle at 40% 30%, rgba(255,255,255,0.05) 0%, #06080e 70%);
+      border-radius:6px; display:flex; align-items:center; justify-content:center;
+      position:relative; overflow:hidden; cursor:pointer; flex-direction:column;
+    " title="${item.name}\n${rc.name}\n${buildStatLine(item)}\n${item.desc || ''}"
+       onclick="handleSlotClick('${slotKey}')">
+      <div style="color:${rc.color}; width:${size-12}px; height:${size-12}px;">${svg}</div>
+      <div style="
+        position:absolute; bottom:0; left:0; right:0;
+        background: linear-gradient(transparent, rgba(0,0,0,0.85));
+        font-size:7px; color:${rc.color}; text-align:center; padding:1px 2px;
+        overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+        letter-spacing:0.2px; line-height:1.2;
+      ">${item.name}</div>
+    </div>
+  `;
+}
+
+function buildStatLine(item) {
+  const parts = [];
+  if (item.attackBonus)   parts.push(`⚔ +${item.attackBonus}`);
+  if (item.defenseBonus)  parts.push(`🛡 +${item.defenseBonus}`);
+  if (item.maxHpBonus)    parts.push(`❤ +${item.maxHpBonus} HP`);
+  if (item.maxMpBonus)    parts.push(`💧 +${item.maxMpBonus} MP`);
+  if (item.speedBonus)    parts.push(`⚡ +${item.speedBonus} СКР`);
+  if (item.critBonus)     parts.push(`✦ +${Math.round(item.critBonus*100)}% КРИТ`);
+  return parts.join('  ');
+}
+
+// Character silhouette SVG
+const CHAR_SILHOUETTE = `<svg viewBox="0 0 90 160" xmlns="http://www.w3.org/2000/svg">
+  <!-- Glow aura -->
+  <defs>
+    <radialGradient id="aura" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#1e3a6e" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#060a14" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow-char">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <ellipse cx="45" cy="85" rx="42" ry="72" fill="url(#aura)"/>
+  <!-- Body silhouette -->
+  <!-- Head -->
+  <ellipse cx="45" cy="22" rx="14" ry="16" fill="#0d1830" stroke="#1e3a6e" stroke-width="1"/>
+  <!-- Neck -->
+  <rect x="41" y="35" width="8" height="8" rx="2" fill="#0d1830"/>
+  <!-- Torso -->
+  <path d="M24,43 L20,90 L28,90 L30,70 L45,73 L60,70 L62,90 L70,90 L66,43 Z"
+        fill="#0d1830" stroke="#1e3a6e" stroke-width="1"/>
+  <!-- Shoulders -->
+  <ellipse cx="22" cy="47" rx="9" ry="7" fill="#0a1428" stroke="#1a3060" stroke-width="1"/>
+  <ellipse cx="68" cy="47" rx="9" ry="7" fill="#0a1428" stroke="#1a3060" stroke-width="1"/>
+  <!-- Arms -->
+  <path d="M14,53 Q10,70 13,85" stroke="#1e3a6e" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M76,53 Q80,70 77,85" stroke="#1e3a6e" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <!-- Hands -->
+  <circle cx="13" cy="87" r="5" fill="#0d1830" stroke="#1e3a6e" stroke-width="1"/>
+  <circle cx="77" cy="87" r="5" fill="#0d1830" stroke="#1e3a6e" stroke-width="1"/>
+  <!-- Belt -->
+  <rect x="26" y="88" width="38" height="5" rx="2" fill="#142040" stroke="#1e3a6e" stroke-width="0.8"/>
+  <!-- Legs -->
+  <path d="M30,93 L28,130 L38,130 L45,110 L52,130 L62,130 L60,93Z"
+        fill="#0d1830" stroke="#1e3a6e" stroke-width="0.8"/>
+  <!-- Boots bottom -->
+  <path d="M25,130 Q28,140 40,142 L40,140 L28,138 L28,132Z" fill="#0a1428" stroke="#1a3060" stroke-width="0.8"/>
+  <path d="M65,130 Q62,140 50,142 L50,140 L62,138 L62,132Z" fill="#0a1428" stroke="#1a3060" stroke-width="0.8"/>
+  <!-- Armor lines overlay -->
+  <line x1="45" y1="43" x2="45" y2="88" stroke="#1e3a6e" stroke-width="0.5" opacity="0.5"/>
+  <line x1="24" y1="60" x2="66" y2="60" stroke="#1e3a6e" stroke-width="0.5" opacity="0.4"/>
+  <!-- Eye glow -->
+  <ellipse cx="40" cy="20" rx="3" ry="2" fill="#4488cc" opacity="0.7"/>
+  <ellipse cx="50" cy="20" rx="3" ry="2" fill="#4488cc" opacity="0.7"/>
+  <ellipse cx="40" cy="20" rx="1.5" ry="1" fill="#88ccff" opacity="0.9"/>
+  <ellipse cx="50" cy="20" rx="1.5" ry="1" fill="#88ccff" opacity="0.9"/>
+</svg>`;
+
+// ── Open / Close Inventory ─────────────────────────────────────────────────
+function openInventory() {
+  const overlay = document.getElementById('inventory-overlay');
+  if (!overlay) return;
+  renderInventoryOverlay();
+  overlay.classList.remove('inv-hidden');
+  overlay.classList.add('inv-visible');
+}
+
+function closeInventory() {
+  const overlay = document.getElementById('inventory-overlay');
+  if (overlay) {
+    overlay.classList.remove('inv-visible');
+    overlay.classList.add('inv-hidden');
+  }
+  // Close item picker if open
+  const picker = document.getElementById('inv-picker');
+  if (picker) picker.remove();
+}
+
+// ── Render the full inventory overlay ─────────────────────────────────────
+function renderInventoryOverlay() {
+  const overlay = document.getElementById('inventory-overlay');
+  if (!overlay) return;
+
+  const myPlayer = S.gameState?.players?.find(p => p.socketId === S.mySocketId);
+  const ch = myPlayer?.character;
+  if (!ch) { overlay.innerHTML = '<div style="color:#888;padding:40px;text-align:center">Нет данных</div>'; return; }
+
+  const eq = ch.equipment || {};
+  const bag = ch.inventory || [];
+
+  const SZ = 46; // slot size px
+
+  // 3×3 grid layout:
+  //  [ring1]      [helmet]     [ring2]
+  //  [mainHand]  [silhouette]  [offHand]
+  //  [armor]      [pants]      [boots]
+
+  overlay.innerHTML = `
+  <div class="inv-overlay-inner">
+    <!-- Header -->
+    <div class="inv-header">
+      <div class="inv-title">⚔ ${ch.className} ${ch.name}</div>
+      <button class="inv-close-btn" onclick="closeInventory()">✕</button>
+    </div>
+
+    <!-- Equipment grid 3×3 -->
+    <div class="inv-equip-grid">
+
+      <!-- Row 1 -->
+      <div class="inv-slot-wrap">
+        ${buildSlot('ring1','Украш I', eq.ring1, SZ)}
+        <div class="inv-slot-label">УКРАШ I</div>
+      </div>
+      <div class="inv-slot-wrap">
+        ${buildSlot('helmet','Шлем', eq.helmet, SZ)}
+        <div class="inv-slot-label">ШЛЕМ</div>
+      </div>
+      <div class="inv-slot-wrap">
+        ${buildSlot('ring2','Украш II', eq.ring2, SZ)}
+        <div class="inv-slot-label">УКРАШ II</div>
+      </div>
+
+      <!-- Row 2 -->
+      <div class="inv-slot-wrap">
+        ${buildSlot('mainHand','Пр. рука', eq.mainHand, SZ)}
+        <div class="inv-slot-label">ПР. РУКА</div>
+      </div>
+      <div class="inv-silhouette">${CHAR_SILHOUETTE}</div>
+      <div class="inv-slot-wrap">
+        ${buildSlot('offHand','Лев. рука', eq.offHand, SZ)}
+        <div class="inv-slot-label">ЛЕВ. РУКА</div>
+      </div>
+
+      <!-- Row 3 -->
+      <div class="inv-slot-wrap">
+        ${buildSlot('armor','Броня', eq.armor, SZ)}
+        <div class="inv-slot-label">БРОНЯ</div>
+      </div>
+      <div class="inv-slot-wrap">
+        ${buildSlot('pants','Штаны', eq.pants, SZ)}
+        <div class="inv-slot-label">ШТАНЫ</div>
+      </div>
+      <div class="inv-slot-wrap">
+        ${buildSlot('boots','Сапоги', eq.boots, SZ)}
+        <div class="inv-slot-label">САПОГИ</div>
+      </div>
+
+    </div><!-- /inv-equip-grid -->
+
+    <!-- Stats summary -->
+    <div class="inv-stats-bar">
+      <span>⚔ ${ch.attack}</span>
+      <span>🛡 ${ch.defense}</span>
+      <span>❤ ${ch.hp}/${ch.maxHp}</span>
+      <span>💧 ${ch.mp}/${ch.maxMp}</span>
+      <span>⚡ ${ch.speed}</span>
+      <span>✦ ${Math.round((ch.critChance||0)*100)}%</span>
+    </div>
+
+    <!-- Bag -->
+    <div class="inv-bag-header">🎒 РЮКЗАК <span class="inv-bag-count">(${bag.length}/12)</span></div>
+    <div class="inv-bag-grid" id="inv-bag-grid">
+      ${bag.length === 0
+        ? '<div class="inv-bag-empty">Рюкзак пуст</div>'
+        : bag.map((item, idx) => buildBagItem(item, idx)).join('')}
+    </div>
+
+    <div class="inv-hint">Слот — снять &nbsp;|&nbsp; Предмет в рюкзаке — экипировать</div>
+  </div>
+  `;
+
+  // Add tooltip support
+  setupInvTooltips();
+}
+
+function buildBagItem(item, idx) {
+  const rc = RARITY_CFG[item.rarity] || RARITY_CFG.common;
+  const iconKey = item.iconKey || (item.type === 'consumable' ? 'amulet' : 'ring');
+  const svg = EQUIP_ICONS[iconKey] || EQUIP_ICONS.ring;
+  const statLine = buildStatLine(item);
+  const isEquippable = ['helmet','armor','pants','boots','weapon','ring','accessory','artifact'].includes(item.type);
+  const classWarn = item.classRestrictions?.length ? `\n⚠ Только для: ${item.classRestrictions.join(', ')}` : '';
+  return `
+    <div class="inv-bag-item ${isEquippable ? 'equippable' : ''}" style="
+      border:2px solid ${rc.border};
+      box-shadow: 0 0 8px ${rc.glow};
+    " title="${item.name}\n${rc.name}${classWarn}\n${statLine}\n${item.desc || ''}"
+       onclick="${isEquippable ? `equipFromBag('${item.id}')` : `useBagConsumable('${item.id}')`}">
+      <div style="color:${rc.color}; width:32px; height:32px;">${svg}</div>
+      <div class="inv-bag-item-name" style="color:${rc.color}">${item.name}</div>
+      <div class="inv-bag-item-stats">${statLine || (item.healAmount ? `❤ +${item.healAmount}` : '') || (item.manaAmount ? `💧 +${item.manaAmount}` : '')}</div>
+    </div>
+  `;
+}
+
+function handleSlotClick(slot) {
+  // If slot is occupied → offer to unequip
+  const myPlayer = S.gameState?.players?.find(p => p.socketId === S.mySocketId);
+  const ch = myPlayer?.character;
+  if (!ch) return;
+  const item = ch.equipment?.[slot];
+  if (item) {
+    if (confirm(`Снять "${item.name}" в рюкзак?`)) {
+      socket.emit('unequip_item', { slot }, (res) => {
+        if (!res?.ok) showModal('Ошибка', res?.reason || 'Не удалось снять предмет.', [{ label: 'Закрыть', onclick: 'hideModal()' }]);
+      });
+    }
+  }
+  // If empty → show picker with compatible bag items
+  else {
+    showSlotPicker(slot);
+  }
+}
+
+function equipFromBag(itemId) {
+  const myPlayer = S.gameState?.players?.find(p => p.socketId === S.mySocketId);
+  const ch = myPlayer?.character;
+  if (!ch) return;
+  const item = ch.inventory?.find(i => i.id === itemId);
+  if (!item) return;
+
+  // Determine default slot — infer from type if slot field missing (legacy items)
+  const TYPE_TO_SLOT = {
+    weapon: 'mainHand', armor: 'armor', helmet: 'helmet',
+    pants: 'pants', boots: 'boots', ring: 'ring1',
+    accessory: 'ring1', artifact: 'ring1'
+  };
+  let slot = item.slot || TYPE_TO_SLOT[item.type] || null;
+  if (slot === 'ring1' || slot === 'ring2') {
+    // Pick empty ring slot or fallback to ring1
+    const hasRing1 = !!ch.equipment?.ring1;
+    const hasRing2 = !!ch.equipment?.ring2;
+    slot = (!hasRing1) ? 'ring1' : (!hasRing2) ? 'ring2' : 'ring1';
+  }
+
+  socket.emit('equip_item', { itemId, slot }, (res) => {
+    if (!res?.ok) showModal('Нельзя экипировать', res?.reason || 'Ошибка.', [{ label: 'Закрыть', onclick: 'hideModal()' }]);
+  });
+}
+
+function showSlotPicker(slot) {
+  const myPlayer = S.gameState?.players?.find(p => p.socketId === S.mySocketId);
+  const ch = myPlayer?.character;
+  if (!ch) return;
+  // Filter inventory items compatible with this slot
+  const TYPE_TO_SLOT = {
+    weapon: 'mainHand', armor: 'armor', helmet: 'helmet',
+    pants: 'pants', boots: 'boots', ring: 'ring1',
+    accessory: 'ring1', artifact: 'ring1'
+  };
+  const compat = (ch.inventory || []).filter(item => {
+    const itemSlot = item.slot || TYPE_TO_SLOT[item.type];
+    if (slot === 'ring1' || slot === 'ring2') return ['ring','accessory','artifact'].includes(item.type);
+    if (slot === 'mainHand' || slot === 'offHand') return item.type === 'weapon';
+    return itemSlot === slot;
+  });
+  if (compat.length === 0) {
+    showModal('Нет предметов', `В рюкзаке нет предметов для слота "${slot}".`, [{ label: 'Закрыть', onclick: 'hideModal()' }]);
+    return;
+  }
+  // Show a small picker
+  const picker = document.createElement('div');
+  picker.id = 'inv-picker';
+  picker.className = 'inv-picker-overlay';
+  picker.innerHTML = `
+    <div class="inv-picker-box">
+      <div class="inv-picker-title">Выберите предмет → ${slot}</div>
+      <div class="inv-picker-list">
+        ${compat.map(item => {
+          const rc = RARITY_CFG[item.rarity] || RARITY_CFG.common;
+          return `<div class="inv-picker-item" style="border-color:${rc.border}" onclick="pickItemForSlot('${item.id}','${slot}')">
+            <span style="color:${rc.color}">${item.name}</span>
+            <span style="font-size:10px;color:#668">${buildStatLine(item)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      <button onclick="document.getElementById('inv-picker').remove()" class="btn btn-ghost" style="margin-top:8px">Отмена</button>
+    </div>
+  `;
+  document.getElementById('inventory-overlay').appendChild(picker);
+}
+
+function pickItemForSlot(itemId, slot) {
+  const picker = document.getElementById('inv-picker');
+  if (picker) picker.remove();
+  socket.emit('equip_item', { itemId, slot }, (res) => {
+    if (!res?.ok) showModal('Нельзя экипировать', res?.reason || 'Ошибка.', [{ label: 'Закрыть', onclick: 'hideModal()' }]);
+  });
+}
+
+function useBagConsumable(itemId) {
+  // consumables from bag can only be used in combat through actions
+  showModal('Расходник', 'Зелья и свитки используются через меню действий в бою.', [{ label: 'Понятно', onclick: 'hideModal()' }]);
+}
+
+function setupInvTooltips() {
+  // Native title tooltips are enough for now
+}
+
+// Re-render inventory whenever game state updates (if open)
+function maybeRefreshInventory() {
+  const overlay = document.getElementById('inventory-overlay');
+  if (overlay && overlay.classList.contains('inv-visible')) {
+    renderInventoryOverlay();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const socket = io({ reconnectionAttempts: 5, reconnectionDelay: 2000 });
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -913,6 +1401,7 @@ socket.on('room_update', (state) => {
   S.gameState = state;
   S.roomId = state.roomId;
   renderGameState();
+  maybeRefreshInventory();
 });
 
 socket.on('log', (entry) => {
@@ -1407,20 +1896,45 @@ function renderPlayerStats(players) {
           <div class="hp-bar-fill ${hpClass}" style="width:${hpPct}%"></div>
         </div>
         <div class="psc-hp-text">
-          <span>${ch.hp}/${ch.maxHp} HP</span>
+          <span class="psc-bar-nums">
+            <span class="psc-bar-cur ${hpClass}">${ch.hp}</span><span class="psc-bar-sep">/</span><span class="psc-bar-max">${ch.maxHp}</span>
+            <span class="psc-bar-tag">HP</span>
+          </span>
           <span class="psc-acted ${ch.hasActed ? 'done' : ''}">${ch.hasActed ? '✓ Ход' : '○ Ждёт'}</span>
         </div>
         <div class="mp-bar-container">
           <div class="mp-bar-fill ${mpClass}" style="width:${mpPct}%"></div>
         </div>
-        <div class="psc-mp-text">⬡ ${mp}/${maxMp} MP</div>
+        <div class="psc-mp-text">
+          <span class="psc-bar-nums">
+            <span class="psc-bar-cur psc-mp-cur">⬡ ${mp}</span><span class="psc-bar-sep">/</span><span class="psc-bar-max">${maxMp}</span>
+            <span class="psc-bar-tag">MP</span>
+          </span>
+        </div>
         <div class="psc-stats-mini">
-          <span>⚔${ch.attack}</span>
-          <span>🛡${ch.defense}</span>
-          <span>💰${ch.gold}</span>
-          <span>🧪${ch.potions}</span>
+          <div class="psc-stat-block psc-stat-atk">
+            <div class="psc-stat-ico">⚔</div>
+            <div class="psc-stat-num">${ch.attack}</div>
+            <div class="psc-stat-lbl">АТК</div>
+          </div>
+          <div class="psc-stat-block psc-stat-def">
+            <div class="psc-stat-ico">🛡</div>
+            <div class="psc-stat-num">${ch.defense}</div>
+            <div class="psc-stat-lbl">ЗАЩ</div>
+          </div>
+          <div class="psc-stat-block psc-stat-gold">
+            <div class="psc-stat-ico">💰</div>
+            <div class="psc-stat-num">${ch.gold}</div>
+            <div class="psc-stat-lbl">ЗЛАТ</div>
+          </div>
+          <div class="psc-stat-block psc-stat-pot">
+            <div class="psc-stat-ico">🧪</div>
+            <div class="psc-stat-num">${ch.potions}</div>
+            <div class="psc-stat-lbl">ЗЕЛЬЯ</div>
+          </div>
         </div>
         ${effects ? `<div class="psc-effects">${effects}</div>` : ''}
+        ${isMe ? `<button class="btn-open-inventory" onclick="openInventory()" title="Открыть инвентарь">⚔ ЭКИПИРОВКА</button>` : ''}
       </div>
     `;
   }).join('');
@@ -2199,7 +2713,10 @@ function renderRoomActions(room, state) {
           <div class="sell-title">💸 Продать торговцу</div>
           <div class="sell-list">${inventory.map(item => {
             const sp = computeSellPrice(item);
-            const icon = ITEM_ICONS[item.iconId] || ITEM_ICONS[item.id];
+            // Support both old (iconId) and new (iconKey) icon systems
+            const icon = (item.iconKey && EQUIP_ICONS[item.iconKey])
+              ? EQUIP_ICONS[item.iconKey]
+              : (ITEM_ICONS[item.iconId] || ITEM_ICONS[item.id] || null);
             const iconHtml = icon
               ? `<div class="sell-item-icon">${icon}</div>`
               : `<div class="sell-item-icon">${TYPE_EMOJI[item.type] || '?'}</div>`;
@@ -2232,7 +2749,7 @@ function renderRoomActions(room, state) {
     const TYPE_EMOJI = { weapon: '⚔', armor: '🛡', accessory: '💍', consumable: '🧪', artifact: '✨' };
     area.innerHTML += `
       <div class="drop-inventory-box">
-        <div class="panel-title" style="margin-bottom:6px;font-size:12px">🎒 Инвентарь (${myChar.inventory.length}/8)</div>
+        <div class="panel-title" style="margin-bottom:6px;font-size:12px">🎒 Рюкзак (${myChar.inventory.length}/12)</div>
         <div class="drop-list">${myChar.inventory.map(item => `
           <div class="drop-item">
             <span class="drop-item-icon">${TYPE_EMOJI[item.type] || '?'}</span>
@@ -2271,7 +2788,11 @@ function exploreSecret() {
 }
 
 function collectLoot(itemId) {
-  socket.emit('collect_loot', { itemId }, (res) => {});
+  socket.emit('collect_loot', { itemId }, (res) => {
+    if (!res?.ok && res?.reason) {
+      showModal('Не удалось подобрать', res.reason, [{ label: 'Закрыть', onclick: 'hideModal()' }]);
+    }
+  });
 }
 
 function computeSellPrice(item) {
@@ -3155,7 +3676,6 @@ function renderVoting(vote) {
             <span class="dir-btn-name">${opt.name}</span>
           </div>
           <div class="dir-btn-hint">${hint}</div>
-          ${opt.locked ? `<div class="dir-btn-lock">🔒 Заперто</div>` : ''}
           ${voteCount > 0 ? `<div class="dir-btn-votes">${voteCount} ✓</div>` : ''}
         </div>
       </button>`;

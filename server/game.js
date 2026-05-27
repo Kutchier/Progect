@@ -354,6 +354,7 @@ class GameRoom {
         this.addLog(`--- Ход: ${entity.name} (авто) ---`);
         setTimeout(() => {
           if (this.phase !== GAME_PHASE.PLAYING) return;
+          if (room.isCleared) return; // Баг 2 (AI): комната уже очищена
           const aliveEnemies = room.enemies.filter(e => e.isAlive);
           if (aliveEnemies.length === 0 || !player.isAlive || player.hasActed) return;
           const gameState = this.getGameState();
@@ -374,6 +375,9 @@ class GameRoom {
 
   // Advance to the next turn in initiative order
   _advanceCombatTurn(room) {
+    // Guard: игнорировать устаревшие вызовы (например из setTimeout) если комната уже очищена
+    if (room.isCleared) return;
+
     const total = room.initiativeOrder.length;
     if (!total) return;
 
@@ -420,6 +424,8 @@ class GameRoom {
       if (room.type === 'boss') {
         const summary = this._buildFloorSummary();
         if (this.io) this.io.to(this.id).emit('floor_complete', summary);
+        // Баг 3: отправить room_update сразу после победы над боссом, чтобы клиент обновил UI
+        if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
         setTimeout(() => {
           if (this.phase === GAME_PHASE.PLAYING) this.startVoting();
         }, 7000);
@@ -451,7 +457,11 @@ class GameRoom {
     if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
 
     // Small delay to let client see the update before advancing
-    setTimeout(() => this._advanceCombatTurn(room), 600);
+    // Баг 2: проверяем что room не устарела (не была очищена пока таймер висел)
+    setTimeout(() => {
+      if (room.isCleared) return;
+      this._advanceCombatTurn(room);
+    }, 600);
   }
 
   processAction(socketId, action) {
@@ -548,6 +558,9 @@ class GameRoom {
 
     if (this.voteTimer) clearTimeout(this.voteTimer);
     this.voteTimer = setTimeout(() => this.resolveVote(), VOTE_TIMEOUT);
+
+    // Баг 1: отправить room_update всем клиентам чтобы они увидели фазу голосования
+    if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
   }
 
   castVote(socketId, roomId) {
@@ -772,9 +785,105 @@ class GameRoom {
     this.startVoting();
   }
 
+  // ── Equipment Methods ──────────────────────────────────────────────────────
+  // Equip an item from inventory into a specific slot (or auto-detect slot)
+  equipItem(socketId, itemId, preferredSlot) {
+    const player = this.players[socketId];
+    if (!player?.character) return { ok: false, reason: 'Персонаж не найден.' };
+    if (!player.character.isAlive) return { ok: false, reason: 'Мёртвые не экипируют предметы.' };
+    const ch = player.character;
+
+    const idx = ch.inventory.findIndex(i => i.id === itemId);
+    if (idx === -1) return { ok: false, reason: 'Предмет не найден в инвентаре.' };
+    const item = ch.inventory[idx];
+
+    const { canEquipItem, recalcStats } = require('./items');
+    const { recalcStats: recalcS } = require('./classes');
+
+    // Check class restriction
+    if (!canEquipItem(ch, item)) {
+      return { ok: false, reason: `${ch.className} не может использовать "${item.name}".` };
+    }
+
+    // Determine target slot — infer from type if slot field is missing (legacy items)
+    const TYPE_TO_SLOT = {
+      weapon: 'mainHand', armor: 'armor', helmet: 'helmet',
+      pants: 'pants', boots: 'boots', ring: 'ring1',
+      accessory: 'ring1', artifact: 'ring1'
+    };
+    const itemSlot = item.slot || TYPE_TO_SLOT[item.type] || null;
+    let targetSlot = preferredSlot || itemSlot;
+    // For ring-type items: allow ring1 or ring2
+    if (itemSlot === 'ring1' || itemSlot === 'ring2') {
+      if (!preferredSlot || (preferredSlot !== 'ring1' && preferredSlot !== 'ring2')) {
+        // Auto pick the empty ring slot, or ring1 if both occupied
+        targetSlot = (!ch.equipment.ring1) ? 'ring1' : (!ch.equipment.ring2) ? 'ring2' : (preferredSlot || 'ring1');
+      } else {
+        targetSlot = preferredSlot;
+      }
+    }
+
+    const validSlots = ['helmet','armor','pants','boots','mainHand','offHand','ring1','ring2'];
+    if (!validSlots.includes(targetSlot)) return { ok: false, reason: 'Неверный слот экипировки.' };
+
+    // If slot occupied → move old item to inventory
+    const oldItem = ch.equipment[targetSlot];
+    if (oldItem) {
+      ch.inventory.push(oldItem);
+    }
+
+    // Move new item from inventory to slot
+    ch.inventory.splice(idx, 1);
+    ch.equipment[targetSlot] = item;
+
+    recalcS(ch);
+
+    const rarityNames = { common: 'Обычный', uncommon: 'Необычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный' };
+    const rarLabel = item.rarity ? ` [${rarityNames[item.rarity] || item.rarity}]` : '';
+    this.addLog(`${player.name} экипирует: ${item.name}${rarLabel}.`);
+    return { ok: true };
+  }
+
+  // Unequip item from a slot → move to inventory
+  unequipItem(socketId, slot) {
+    const player = this.players[socketId];
+    if (!player?.character) return { ok: false, reason: 'Персонаж не найден.' };
+    if (!player.character.isAlive) return { ok: false, reason: 'Нельзя снять экипировку сейчас.' };
+    const ch = player.character;
+
+    const validSlots = ['helmet','armor','pants','boots','mainHand','offHand','ring1','ring2'];
+    if (!validSlots.includes(slot)) return { ok: false, reason: 'Неверный слот.' };
+
+    const item = ch.equipment[slot];
+    if (!item) return { ok: false, reason: 'Слот пуст.' };
+
+    // Prevent unequipping last weapon if we have no alternative
+    if (slot === 'mainHand' && !ch.equipment.offHand) {
+      const hasInventoryWeapon = ch.inventory.some(i => i.type === 'weapon');
+      if (!hasInventoryWeapon) {
+        return { ok: false, reason: 'Нельзя снять последнее оружие!' };
+      }
+    }
+
+    const MAX_BAG = 12;
+    if (ch.inventory.length >= MAX_BAG) {
+      return { ok: false, reason: `Рюкзак заполнен! Максимум ${MAX_BAG} предметов.` };
+    }
+
+    ch.equipment[slot] = null;
+    ch.inventory.push(item);
+
+    const { recalcStats } = require('./classes');
+    recalcStats(ch);
+
+    this.addLog(`${player.name} снимает: ${item.name}.`);
+    return { ok: true };
+  }
+
   distributeLoot(items) {
     const alivePlayers = Object.values(this.players).filter(p => p.character?.isAlive);
     if (alivePlayers.length === 0) return;
+    const MAX_BAG = 12;
 
     for (const item of items) {
       if (item.type === 'gold') {
@@ -782,33 +891,22 @@ class GameRoom {
         for (const p of alivePlayers) p.character.gold += perPlayer;
         this.addLog(`Найдено ${item.amount} золота (по ${perPlayer} каждому).`);
       } else {
-        // Round-robin distribution
+        // Round-robin distribution — items go to bag (no auto-apply stats)
         let distributed = false;
         for (let attempt = 0; attempt < alivePlayers.length; attempt++) {
           const recipient = alivePlayers[this.lootRoundIndex % alivePlayers.length];
           this.lootRoundIndex++;
-          if ((recipient.character.inventory?.length || 0) < MAX_INVENTORY) {
-            const isGear = item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory' || item.type === 'artifact';
-            if (isGear) {
-              if (item.attackBonus)  recipient.character.attack  += item.attackBonus;
-              if (item.defenseBonus) recipient.character.defense  = Math.max(0, recipient.character.defense + item.defenseBonus);
-              if (item.maxHpBonus)  { recipient.character.maxHp += item.maxHpBonus; recipient.character.hp += item.maxHpBonus; }
-              const stats = [];
-              if (item.attackBonus)  stats.push(`⚔+${item.attackBonus}`);
-              if (item.defenseBonus) stats.push(`🛡${item.defenseBonus > 0 ? '+' : ''}${item.defenseBonus}`);
-              if (item.maxHpBonus)   stats.push(`❤+${item.maxHpBonus}`);
-              recipient.character.inventory.push({ ...item, statsApplied: true });
-              this.addLog(`${recipient.name} получает: ${item.name}${stats.length ? ` [${stats.join(' ')}]` : ''}`);
-            } else {
-              recipient.character.inventory.push(item);
-              this.addLog(`${recipient.name} получает: ${item.name}`);
-            }
+          if ((recipient.character.inventory?.length || 0) < MAX_BAG) {
+            recipient.character.inventory.push({ ...item });
+            const rarityNames = { common: 'Обычный', uncommon: 'Необычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный' };
+            const rar = item.rarity ? ` [${rarityNames[item.rarity] || ''}]` : '';
+            this.addLog(`${recipient.name} получает: ${item.name}${rar}.`);
             distributed = true;
             break;
           }
         }
         if (!distributed) {
-          this.addLog(`${item.name} никто не смог подобрать — инвентари полны.`);
+          this.addLog(`${item.name} никто не смог подобрать — рюкзаки полны.`);
         }
       }
     }
@@ -827,33 +925,19 @@ class GameRoom {
     const player = this.players[socketId];
     if (!player?.character) return { ok: false, reason: 'Персонаж не найден.' };
     if (!player.character.isAlive) return { ok: false, reason: 'Мёртвые не покупают.' };
+    const MAX_BAG = 12;
 
     if (player.character.gold < item.price) {
       return { ok: false, reason: `Недостаточно золота! Нужно: ${item.price}💰, у вас: ${player.character.gold}💰` };
     }
-    if ((player.character.inventory?.length || 0) >= MAX_INVENTORY) {
-      return { ok: false, reason: `Инвентарь заполнен! Максимум ${MAX_INVENTORY} предметов.` };
+    if ((player.character.inventory?.length || 0) >= MAX_BAG) {
+      return { ok: false, reason: `Рюкзак заполнен! Максимум ${MAX_BAG} предметов.` };
     }
 
     player.character.gold -= item.price;
-
-    if (item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory' || item.type === 'artifact') {
-      if (item.attackBonus)  player.character.attack  += item.attackBonus;
-      if (item.defenseBonus) player.character.defense  = Math.max(0, player.character.defense + item.defenseBonus);
-      if (item.maxHpBonus) {
-        player.character.maxHp = Math.max(1, player.character.maxHp + item.maxHpBonus);
-        player.character.hp    = Math.min(player.character.hp, player.character.maxHp);
-      }
-      player.character.inventory.push({ ...item, statsApplied: true });
-      const stats = [];
-      if (item.attackBonus)  stats.push(`⚔+${item.attackBonus}`);
-      if (item.defenseBonus) stats.push(`🛡${item.defenseBonus > 0 ? '+' : ''}${item.defenseBonus}`);
-      if (item.maxHpBonus)   stats.push(`❤${item.maxHpBonus > 0 ? '+' : ''}${item.maxHpBonus}`);
-      this.addLog(`${player.name} покупает "${item.name}" за ${item.price}💰. [${stats.join(' ')}]`);
-    } else {
-      player.character.inventory.push({ ...item });
-      this.addLog(`${player.name} покупает "${item.name}" за ${item.price}💰.`);
-    }
+    // Items go to bag — player equips manually
+    player.character.inventory.push({ ...item });
+    this.addLog(`${player.name} покупает "${item.name}" за ${item.price}💰.`);
 
     room.shopItems.splice(itemIdx, 1);
     return { ok: true };
@@ -865,26 +949,9 @@ class GameRoom {
     if (!player.character.isAlive) return { ok: false, reason: 'Мёртвые не выбрасывают предметы.' };
 
     const idx = player.character.inventory.findIndex(i => i.id === itemId);
-    if (idx === -1) return { ok: false, reason: 'Предмет не найден.' };
+    if (idx === -1) return { ok: false, reason: 'Предмет не найден в рюкзаке.' };
 
     const item = player.character.inventory[idx];
-
-    if (item.type === 'weapon') {
-      const otherWeapons = player.character.inventory.filter((i, index) => i.type === 'weapon' && index !== idx);
-      if (otherWeapons.length === 0) {
-        return { ok: false, reason: 'Нельзя выбросить последнее оружие!' };
-      }
-    }
-
-    if (item.statsApplied) {
-      if (item.attackBonus)  player.character.attack   = Math.max(1, player.character.attack  - item.attackBonus);
-      if (item.defenseBonus) player.character.defense  = Math.max(0, player.character.defense - item.defenseBonus);
-      if (item.maxHpBonus) {
-        player.character.maxHp = Math.max(1, player.character.maxHp - item.maxHpBonus);
-        player.character.hp    = Math.min(player.character.hp, player.character.maxHp);
-      }
-    }
-
     player.character.inventory.splice(idx, 1);
     this.addLog(`${player.name} выбрасывает "${item.name}".`);
     return { ok: true };
@@ -893,11 +960,15 @@ class GameRoom {
   _getSellPrice(item) {
     if (item.price) return Math.max(5, Math.floor(item.price * 0.4));
     let val = 0;
-    if (item.attackBonus)  val += item.attackBonus * 5;
-    if (item.defenseBonus) val += item.defenseBonus * 5;
-    if (item.maxHpBonus)   val += item.maxHpBonus;
+    if (item.attackBonus)  val += item.attackBonus * 6;
+    if (item.defenseBonus) val += item.defenseBonus * 6;
+    if (item.maxHpBonus)   val += Math.abs(item.maxHpBonus);
+    if (item.maxMpBonus)   val += item.maxMpBonus;
     if (item.healAmount)   val += Math.floor(item.healAmount * 0.35);
-    return Math.max(5, val);
+    // Rarity multiplier
+    const rarMult = { common: 1, uncommon: 1.5, rare: 2.5, epic: 4, legendary: 8 };
+    val *= (rarMult[item.rarity] || 1);
+    return Math.max(5, Math.floor(val));
   }
 
   sellItem(socketId, itemId) {
@@ -911,27 +982,10 @@ class GameRoom {
     if (!player.character.isAlive) return { ok: false, reason: 'Мёртвые не продают.' };
 
     const idx = player.character.inventory.findIndex(i => i.id === itemId);
-    if (idx === -1) return { ok: false, reason: 'Предмет не найден.' };
+    if (idx === -1) return { ok: false, reason: 'Предмет не найден в рюкзаке.' };
 
     const item = player.character.inventory[idx];
-
-    if (item.type === 'weapon') {
-      const otherWeapons = player.character.inventory.filter((i, index) => i.type === 'weapon' && index !== idx);
-      if (otherWeapons.length === 0) {
-        return { ok: false, reason: 'Нельзя продать последнее оружие — без него вы не сможете атаковать!' };
-      }
-    }
-
     const gold = this._getSellPrice(item);
-
-    if (item.statsApplied) {
-      if (item.attackBonus)  player.character.attack   = Math.max(1, player.character.attack  - item.attackBonus);
-      if (item.defenseBonus) player.character.defense  = Math.max(0, player.character.defense - item.defenseBonus);
-      if (item.maxHpBonus) {
-        player.character.maxHp = Math.max(1, player.character.maxHp - item.maxHpBonus);
-        player.character.hp    = Math.min(player.character.hp, player.character.maxHp);
-      }
-    }
 
     player.character.inventory.splice(idx, 1);
     player.character.gold += gold;

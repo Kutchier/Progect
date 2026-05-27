@@ -357,11 +357,59 @@ const CLASSES = {
   }
 };
 
+// ── Stat Recalculation ────────────────────────────────────────────────────────
+// Recomputes effective stats from: base class × level scaling + levelBonuses + equipment
+function recalcStats(character) {
+  const cls = CLASSES[character.classId];
+  if (!cls) return;
+  const base = cls.baseStats;
+  const lvl  = character.level || 1;
+  const lvlMult = 1 + 0.07 * (lvl - 1);
+
+  const lb = character.levelBonuses || {};
+
+  // Base + level scaling + accumulated level-up bonuses
+  let atk   = Math.floor(base.attack   * lvlMult) + (lb.attack   || 0);
+  let def   = Math.floor(base.defense  * lvlMult) + (lb.defense  || 0);
+  let maxHp = Math.floor(base.maxHp    * lvlMult) + (lb.maxHp    || 0);
+  let maxMp = Math.floor(base.maxMp    * lvlMult) + (lb.maxMp    || 0);
+  let spd   = base.speed                          + (lb.speed    || 0);
+  let crit  = base.critChance                     + (lb.critChance || 0);
+
+  // Add equipment bonuses
+  const equip = character.equipment || {};
+  for (const item of Object.values(equip)) {
+    if (!item) continue;
+    atk   += item.attackBonus   || 0;
+    def   += item.defenseBonus  || 0;
+    maxHp += item.maxHpBonus    || 0;
+    maxMp += item.maxMpBonus    || 0;
+    spd   += item.speedBonus    || 0;
+    crit  += item.critBonus     || 0;
+  }
+
+  character.attack    = Math.max(1, atk);
+  character.defense   = Math.max(0, def);
+  const hpDiff = Math.max(1, maxHp) - (character.maxHp || 1);
+  character.maxHp     = Math.max(1, maxHp);
+  character.hp        = Math.min(character.maxHp, Math.max(1, (character.hp || 1) + Math.max(0, hpDiff)));
+  const mpDiff = Math.max(0, maxMp) - (character.maxMp || 0);
+  character.maxMp     = Math.max(0, maxMp);
+  character.mp        = Math.min(character.maxMp, Math.max(0, (character.mp || 0) + Math.max(0, mpDiff)));
+  character.speed     = Math.max(1, spd);
+  character.critChance = Math.min(0.90, Math.max(0, crit));
+}
+
 function createCharacter(classId, playerName, playerId) {
   const cls = CLASSES[classId];
   if (!cls) throw new Error(`Unknown class: ${classId}`);
 
-  return {
+  const { CLASS_STARTING_WEAPONS, getItemById } = require('./items');
+  const startWeaponId = CLASS_STARTING_WEAPONS[classId];
+  const startWeapon   = startWeaponId ? { ...getItemById(startWeaponId) } : null;
+  if (startWeapon) startWeapon.id = startWeaponId; // keep clean id for starting item
+
+  const character = {
     id: playerId,
     name: playerName,
     classId: cls.id,
@@ -370,16 +418,31 @@ function createCharacter(classId, playerName, playerId) {
     level: 1,
     exp: 0,
     expToNext: 100,
+    // stats will be set by recalcStats below
     hp: cls.baseStats.hp,
     maxHp: cls.baseStats.maxHp,
     mp: cls.baseStats.mp,
     maxMp: cls.baseStats.maxMp,
-    attack: cls.baseStats.attack + (cls.startingItem.attackBonus || 0),
-    defense: cls.baseStats.defense + (cls.startingItem.defenseBonus || 0),
+    attack: cls.baseStats.attack,
+    defense: cls.baseStats.defense,
     speed: cls.baseStats.speed,
     critChance: cls.baseStats.critChance,
     abilities: cls.abilities.map(a => ({ ...a })),
-    inventory: [{ ...cls.startingItem, quantity: 1, statsApplied: true }],
+    // Equipment slots (8 slots)
+    equipment: {
+      helmet:   null,
+      armor:    null,
+      pants:    null,
+      boots:    null,
+      mainHand: startWeapon,
+      offHand:  null,
+      ring1:    null,
+      ring2:    null
+    },
+    // Bag of unequipped items (max 12)
+    inventory: [],
+    // Cumulative stat bonuses from level-up choices
+    levelBonuses: { attack: 0, defense: 0, maxHp: 0, maxMp: 0, speed: 0, critChance: 0 },
     potions: 2,
     gold: 0,
     isAlive: true,
@@ -397,6 +460,10 @@ function createCharacter(classId, playerName, playerId) {
     passives: {},
     pendingLevelUp: null
   };
+
+  // Apply equipment bonuses to base stats
+  recalcStats(character);
+  return character;
 }
 
 // ── Level-Up Option Pool ──────────────────────────────────────────────────────
@@ -475,35 +542,41 @@ function generateLevelUpOptions(character, count = 3) {
 }
 
 function applyLevelUpOption(character, optionId) {
-  if (!character.passives) character.passives = {};
+  if (!character.passives)      character.passives    = {};
+  if (!character.levelBonuses)  character.levelBonuses = { attack: 0, defense: 0, maxHp: 0, maxMp: 0, speed: 0, critChance: 0 };
+  const lb = character.levelBonuses;
 
   switch (optionId) {
     case 'hp_up':
-      character.maxHp += 20;
+      lb.maxHp += 20;
+      recalcStats(character);
       character.hp = Math.min(character.maxHp, character.hp + 15);
       break;
     case 'mp_up':
-      character.maxMp += 20;
+      lb.maxMp += 20;
+      recalcStats(character);
       character.mp = Math.min(character.maxMp, character.mp + 15);
       break;
-    case 'atk_up':   character.attack  += 4; break;
-    case 'def_up':   character.defense += 3; break;
-    case 'spd_up':   character.speed   += 2; break;
-    case 'crit_up':  character.critChance = Math.min(0.90, (character.critChance || 0) + 0.05); break;
+    case 'atk_up':    lb.attack   += 4;    recalcStats(character); break;
+    case 'def_up':    lb.defense  += 3;    recalcStats(character); break;
+    case 'spd_up':    lb.speed    += 2;    recalcStats(character); break;
+    case 'crit_up':   lb.critChance = Math.min(0.70, (lb.critChance || 0) + 0.05); recalcStats(character); break;
     case 'potion_up': character.potions += 1; break;
 
     case 'berserker':
-      character.attack  += 8;
-      character.defense  = Math.max(0, character.defense - 4);
+      lb.attack  += 8;
+      lb.defense -= 4;
+      recalcStats(character);
       break;
     case 'tank':
-      character.defense += 8;
-      character.attack   = Math.max(1, character.attack - 3);
+      lb.defense += 8;
+      lb.attack  -= 3;
+      recalcStats(character);
       break;
     case 'glasscannon':
-      character.attack  += 12;
-      character.maxHp    = Math.max(1, character.maxHp - 15);
-      character.hp       = Math.min(character.hp, character.maxHp);
+      lb.attack  += 12;
+      lb.maxHp   -= 15;
+      recalcStats(character);
       break;
 
     case 'lifesteal':   character.passives.lifesteal  = 0.08; break;
@@ -519,7 +592,8 @@ function applyLevelUpOption(character, optionId) {
       break;
     }
     case 'mage_arcane':
-      character.maxMp += 30;
+      lb.maxMp += 30;
+      recalcStats(character);
       character.mp = Math.min(character.maxMp, character.mp + 30);
       character.passives.extraMpRegen = (character.passives.extraMpRegen || 0) + 3;
       break;
@@ -554,16 +628,16 @@ function applyLevelUpOption(character, optionId) {
 function levelUp(character) {
   character.level += 1;
   character.expToNext = Math.floor(character.expToNext * 1.5);
+  if (!character.levelBonuses) character.levelBonuses = { attack: 0, defense: 0, maxHp: 0, maxMp: 0, speed: 0, critChance: 0 };
 
-  // Smaller automatic growth — player's choice adds the significant bonus
+  // Recalculate stats with new level (equipment bonuses preserved through recalcStats)
+  const hpBefore = character.hp;
+  const mpBefore = character.mp;
+  recalcStats(character);
+  // Heal a bit on level up
   const cls = CLASSES[character.classId];
-  const base = cls.baseStats;
-  character.maxHp = Math.floor(base.maxHp * (1 + 0.07 * (character.level - 1)));
-  character.hp    = Math.min(character.hp + Math.floor(base.maxHp * 0.07), character.maxHp);
-  character.maxMp = Math.floor(base.maxMp * (1 + 0.07 * (character.level - 1)));
-  character.mp    = Math.min(character.mp + Math.floor(base.maxMp * 0.15), character.maxMp);
-  character.attack  = Math.floor(base.attack  * (1 + 0.07 * (character.level - 1)));
-  character.defense = Math.floor(base.defense * (1 + 0.07 * (character.level - 1)));
+  character.hp = Math.min(character.maxHp, hpBefore + Math.floor(cls.baseStats.maxHp * 0.07));
+  character.mp = Math.min(character.maxMp, mpBefore + Math.floor(cls.baseStats.maxMp * 0.15));
 
   // Generate 3 choices for player to pick
   character.pendingLevelUp = { options: generateLevelUpOptions(character) };
@@ -571,4 +645,4 @@ function levelUp(character) {
   return character;
 }
 
-module.exports = { CLASSES, createCharacter, levelUp, applyLevelUpOption, LEVEL_UP_OPTIONS };
+module.exports = { CLASSES, createCharacter, levelUp, applyLevelUpOption, recalcStats, LEVEL_UP_OPTIONS };
