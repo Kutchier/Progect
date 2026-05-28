@@ -1,11 +1,12 @@
 'use strict';
 
 const { v4: uuidv4 } = require('uuid');
-const { createCharacter } = require('./classes');
-const { generateFloor, getAvailableRooms, getPlayerScaling } = require('./mapGenerator');
+const { createCharacter, recalcStats } = require('./classes');
+const { generateFloor, getAvailableRooms, getPlayerScaling, generateFloorBossReward, applyFloorBossReward } = require('./mapGenerator');
 const { processPlayerAction, processEnemyTurns, awardExpAndLoot, resetActed, tickEffects, tickAllEffects, initializeCombatGrid, processMoveAction, processSingleEnemyTurn, getMoveRange, getAttackRange, gridDist, bfsReachable } = require('./combat');
 const { createMinigame, processMinigameAction, getMinigameClientState } = require('./minigames');
 const { getCurrentBonus, applyBonusToCharacter } = require('./bonuses');
+const { applyLegacyPerks } = require('./meta');
 
 const GAME_PHASE = {
   LOBBY: 'lobby',
@@ -128,6 +129,13 @@ class GameRoom {
     const { bonus } = getCurrentBonus();
     for (const p of players) {
       p.character = createCharacter(p.classId, p.name, p.socketId);
+      // Apply legacy perks BEFORE recalcStats so stat bonuses propagate
+      const appliedPerks = applyLegacyPerks(p.character, p.name);
+      recalcStats(p.character);
+      if (appliedPerks.length > 0) {
+        const perkNames = appliedPerks.map(pk => `${pk.icon} ${pk.name}`).join(', ');
+        this.addLog(`🏆 ${p.name} несёт наследие: ${perkNames}`);
+      }
       applyBonusToCharacter(p.character, bonus);
     }
     if (bonus) {
@@ -422,13 +430,19 @@ class GameRoom {
       }
 
       if (room.type === 'boss') {
+        // ── Floor boss reward: give every alive player 3 relic choices ───────
+        const alivePlayers = Object.values(this.players).filter(p => p.character?.isAlive);
+        for (const p of alivePlayers) {
+          const options = generateFloorBossReward(3);
+          p.character.pendingFloorReward = { options, floorNumber: this.floorNumber };
+        }
+        this.addLog(`🏆 Босс повержен! Каждый герой выбирает боевую реликвию этажа.`);
+
         const summary = this._buildFloorSummary();
         if (this.io) this.io.to(this.id).emit('floor_complete', summary);
-        // Баг 3: отправить room_update сразу после победы над боссом, чтобы клиент обновил UI
         if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
-        setTimeout(() => {
-          if (this.phase === GAME_PHASE.PLAYING) this.startVoting();
-        }, 7000);
+        // Delay next-floor voting until all players have chosen (or 20 s timeout)
+        this._startFloorRewardTimeout();
         return;
       }
 
@@ -813,6 +827,10 @@ class GameRoom {
     };
     const itemSlot = item.slot || TYPE_TO_SLOT[item.type] || null;
     let targetSlot = preferredSlot || itemSlot;
+    // For weapons: if mainHand occupied and offHand free → auto-use offHand
+    if (targetSlot === 'mainHand' && ch.equipment.mainHand && !ch.equipment.offHand) {
+      targetSlot = 'offHand';
+    }
     // For ring-type items: allow ring1 or ring2
     if (itemSlot === 'ring1' || itemSlot === 'ring2') {
       if (!preferredSlot || (preferredSlot !== 'ring1' && preferredSlot !== 'ring2')) {
@@ -994,6 +1012,54 @@ class GameRoom {
     return { ok: true };
   }
 
+  // ── Floor boss reward helpers ─────────────────────────────────────────────
+  _startFloorRewardTimeout() {
+    if (this._floorRewardTimer) clearTimeout(this._floorRewardTimer);
+    this._floorRewardTimer = setTimeout(() => {
+      // Auto-pick first option for anyone who hasn't chosen yet
+      for (const p of Object.values(this.players)) {
+        if (p.character?.pendingFloorReward) {
+          const first = p.character.pendingFloorReward.options[0];
+          if (first) this._applyFloorReward(p.character, first.id);
+        }
+      }
+      this.startVoting();
+      if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
+    }, 20000);
+  }
+
+  _applyFloorReward(character, rewardId) {
+    const ok = applyFloorBossReward(character, rewardId);
+    if (ok) recalcStats(character);
+    character.pendingFloorReward = null;
+  }
+
+  chooseFloorReward(socketId, rewardId) {
+    const player = this.players[socketId];
+    if (!player?.character?.pendingFloorReward) return { ok: false, reason: 'Нет активного выбора реликвии.' };
+    const valid = player.character.pendingFloorReward.options.find(o => o.id === rewardId);
+    if (!valid) return { ok: false, reason: 'Недопустимый выбор.' };
+
+    this._applyFloorReward(player.character, rewardId);
+    this.addLog(`${player.name} выбирает реликвию: ${valid.icon} ${valid.name}`);
+
+    this._checkFloorRewardsDone();
+    if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
+    return { ok: true };
+  }
+
+  _checkFloorRewardsDone() {
+    const alivePlayers = Object.values(this.players).filter(p => p.character?.isAlive && p.isConnected);
+    const allChosen = alivePlayers.every(p => !p.character.pendingFloorReward);
+    if (allChosen) {
+      if (this._floorRewardTimer) { clearTimeout(this._floorRewardTimer); this._floorRewardTimer = null; }
+      setTimeout(() => {
+        if (this.phase === GAME_PHASE.PLAYING) this.startVoting();
+        if (this.io) this.io.to(this.id).emit('room_update', this.getClientState());
+      }, 1500);
+    }
+  }
+
   nextFloor() {
     this.floorNumber++;
     const activeCount = Math.max(1, Object.values(this.players).filter(p => p.isConnected).length);
@@ -1107,6 +1173,7 @@ class GameRoom {
           effects: p.character.effects,
           abilities: p.character.abilities,
           inventory: p.character.inventory,
+          equipment: p.character.equipment,
           isAI: p.character.isAI,
           gridX: p.character.gridX,
           gridZ: p.character.gridZ,
@@ -1117,7 +1184,8 @@ class GameRoom {
           ultName: p.character.ultName || '',
           ultDescription: p.character.ultDescription || '',
           passives: p.character.passives || {},
-          pendingLevelUp: p.character.pendingLevelUp || null
+          pendingLevelUp: p.character.pendingLevelUp || null,
+          pendingFloorReward: p.character.pendingFloorReward || null
         } : null
       })),
       currentRoom: room ? {
@@ -1139,6 +1207,7 @@ class GameRoom {
           isBoss: e.isBoss,
           phase2Active: e.phase2Active || false,
           effects: e.effects,
+          attackRange: e.attackRange || 1.5,
           gridX: e.gridX,
           gridZ: e.gridZ,
           gridY: e.gridY ?? 0

@@ -39,16 +39,27 @@ let _expiresAt = 0;
 let _timer     = null;
 let _onChange  = null;
 
-function _roll() {
-  _current   = { ...BONUS_POOL[Math.floor(Math.random() * BONUS_POOL.length)] };
-  const mins = 10 + Math.floor(Math.random() * 51); // 10..60
-  const ms   = mins * 60 * 1000;
-  _expiresAt = Date.now() + ms;
+const ROTATION_MS = 30 * 60 * 1000; // exactly 30 minutes, synchronized to wall-clock
 
+function _getWindowIndex() {
+  return Math.floor(Date.now() / ROTATION_MS);
+}
+
+function _roll() {
+  const windowIdx = _getWindowIndex();
+  _current   = { ...BONUS_POOL[windowIdx % BONUS_POOL.length] };
+  _expiresAt = (windowIdx + 1) * ROTATION_MS; // end of current 30-min window
+
+  const msUntilNext = _expiresAt - Date.now();
   if (_timer) clearTimeout(_timer);
-  _timer = setTimeout(_roll, ms);
+  _timer = setTimeout(_roll, msUntilNext);
 
   if (_onChange) _onChange(_current, _expiresAt);
+}
+
+/** Returns milliseconds until the next bonus rotation. */
+function getTimeUntilNext() {
+  return Math.max(0, _expiresAt - Date.now());
 }
 
 function initBonusSystem(onChange) {
@@ -106,4 +117,4 @@ function getBonusMultiplier(bonus, context) {
   }
 }
 
-module.exports = { initBonusSystem, getCurrentBonus, applyBonusToCharacter, getBonusMultiplier, BONUS_POOL };
+module.exports = { initBonusSystem, getCurrentBonus, getTimeUntilNext, applyBonusToCharacter, getBonusMultiplier, BONUS_POOL };

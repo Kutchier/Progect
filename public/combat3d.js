@@ -26,6 +26,8 @@ window.Combat3D = (() => {
   let abilityTargetableIds = new Set(); // enemy IDs in ranged-single ability range (teal)
   let _abilityAimMode = null;           // { rangeType:'ranged-aoe'|'ranged-single', maxRange, aoeRadius }
   let hoveredCell    = null;
+  let hoveredEnemyId = null;
+  let enemyAttackRangeCells = new Set();
 
   const deathAnimating = new Set(); // enemy IDs currently playing death animation
   const permaDead      = new Set(); // enemy IDs whose death animation finished (mesh removed)
@@ -60,6 +62,7 @@ window.Combat3D = (() => {
     atkRed:0x9a1a1a,   atkEdge:0xcc3a3a,
     abilRange:0x4a1080, abilRangeEdge:0xaa44ff,  // purple: AoE ability range
     abilTeal:0x005a50,  abilTealEdge:0x00ccaa,    // teal: ranged single target
+    enemyRange:0x7a3000, enemyRangeEdge:0xff6600,  // orange: enemy attack radius
     turnGold:0xffcc00,
     playerWarrior:0x3a5a80, playerMage:0x5a2a8a,
     playerRogue:0x1a3a2a,   playerCleric:0x7a6020,
@@ -683,6 +686,18 @@ window.Combat3D = (() => {
       highlightGroup.add(b);
     }
 
+    // Enemy attack range cells (orange — shown when hovering an enemy)
+    for (const key of enemyAttackRangeCells) {
+      const [x, z] = key.split(',').map(Number);
+      const wx = x * CELL - size * CELL / 2 + CELL / 2;
+      const wz = z * CELL - size * CELL / 2 + CELL / 2;
+      const hy = getCellElev(x, z);
+      const h = box(CELL*0.88, 0.10, CELL*0.88, matB(C.enemyRange, 0.35), wx, hy + 0.19, wz);
+      highlightGroup.add(h);
+      const b = box(CELL*0.92, 0.04, CELL*0.92, matB(C.enemyRangeEdge, 0.60), wx, hy + 0.20, wz);
+      highlightGroup.add(b);
+    }
+
     // Ability AoE range cells (purple)
     for (const key of abilityRangeCells) {
       const [x, z] = key.split(',').map(Number);
@@ -1183,12 +1198,48 @@ window.Combat3D = (() => {
       return; // skip normal attack highlights in aim mode
     }
 
-    // Normal attack range
+    // Normal attack range (with LOS filter)
     const atkR = getAttackRange(_myCharacter);
     for (const e of _enemies) {
       if (!e.isAlive || e.gridX === undefined) continue;
-      if (Math.hypot(e.gridX-gridX, e.gridZ-gridZ) <= atkR+0.01) attackableIds.add(e.id);
+      if (Math.hypot(e.gridX-gridX, e.gridZ-gridZ) <= atkR+0.01 &&
+          clientHasLineOfSight(gridX, gridZ, e.gridX, e.gridZ)) {
+        attackableIds.add(e.id);
+      }
     }
+  }
+
+  function computeEnemyRangeCells(enemy) {
+    enemyAttackRangeCells.clear();
+    if (!enemy || enemy.gridX === undefined || !_combatGrid) return;
+    const atkR = enemy.attackRange || 1.5;
+    const size = _combatGrid.size;
+    for (let x = 0; x < size; x++) {
+      for (let z = 0; z < size; z++) {
+        const cell = _combatGrid.grid[x][z];
+        if (cell !== 'floor' && cell !== 'stairs') continue;
+        if (Math.hypot(x - enemy.gridX, z - enemy.gridZ) <= atkR + 0.01 &&
+            clientHasLineOfSight(enemy.gridX, enemy.gridZ, x, z)) {
+          enemyAttackRangeCells.add(`${x},${z}`);
+        }
+      }
+    }
+  }
+
+  function clientHasLineOfSight(x1, z1, x2, z2) {
+    if (!_combatGrid) return true;
+    const dx = Math.abs(x2 - x1), dz = Math.abs(z2 - z1);
+    const sx = x1 < x2 ? 1 : -1, sz = z1 < z2 ? 1 : -1;
+    let err = dx - dz, cx = x1, cz = z1;
+    while (cx !== x2 || cz !== z2) {
+      const e2 = 2 * err;
+      if (e2 > -dz) { err -= dz; cx += sx; }
+      if (e2 < dx)  { err += dx; cz += sz; }
+      if (cx === x2 && cz === z2) break;
+      const cell = _combatGrid.grid[cx]?.[cz];
+      if (cell === 'wall' || cell === 'obstacle') return false;
+    }
+    return true;
   }
 
   function getMoveRange(ch) {
@@ -1353,10 +1404,33 @@ window.Combat3D = (() => {
       x: ((ev.clientX-rect.left)/rect.width)*2-1,
       y: -((ev.clientY-rect.top)/rect.height)*2+1
     }, camera);
+
+    // Floor cell hover
     const fs = [];
     gridGroup.traverse(m => { if (m.isMesh&&m.userData.isFloor) fs.push(m); });
     const h = raycaster.intersectObjects(fs);
     hoveredCell = h.length ? { x:h[0].object.userData.cellX, z:h[0].object.userData.cellZ } : null;
+
+    // Enemy entity hover — detect which enemy is under pointer
+    const em = [];
+    entityGroup.traverse(m => { if (m.isMesh) em.push(m); });
+    const eh = raycaster.intersectObjects(em);
+    let newHoveredEnemyId = null;
+    if (eh.length) {
+      let o = eh[0].object;
+      while (o && !o.userData.entityId) o = o.parent;
+      if (o?.userData.entityId && o.userData.isEnemy) newHoveredEnemyId = o.userData.entityId;
+    }
+    if (newHoveredEnemyId !== hoveredEnemyId) {
+      hoveredEnemyId = newHoveredEnemyId;
+      if (hoveredEnemyId) {
+        const enemy = _enemies.find(e => e.id === hoveredEnemyId && e.isAlive);
+        computeEnemyRangeCells(enemy || null);
+      } else {
+        enemyAttackRangeCells.clear();
+      }
+      updateHighlights();
+    }
   }
 
   // ─── Ability Visual Effects ───────────────────────────────────────────────
@@ -2054,7 +2128,8 @@ window.Combat3D = (() => {
     Object.keys(entityHpCache).forEach(k=>delete entityHpCache[k]);
     Object.keys(anims).forEach(k=>delete anims[k]);
     _combatGrid=null; reachableCells.clear(); attackableIds.clear();
-    abilityRangeCells.clear(); abilityTargetableIds.clear(); _abilityAimMode=null; animId=null;
+    abilityRangeCells.clear(); abilityTargetableIds.clear(); _abilityAimMode=null;
+    enemyAttackRangeCells.clear(); hoveredEnemyId=null; animId=null;
   }
 
   function setAbilityAimMode(cfg) {

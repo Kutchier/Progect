@@ -409,6 +409,47 @@ function computeRoomLayout(rooms) {
   }
 }
 
+// ── Floor-boss reward pool (relic-style choices after boss kill) ─────────────
+const FLOOR_BOSS_REWARDS = [
+  { id: 'fr_atk',       name: '⚔ Закалённый клинок',     desc: '+5 к атаке навсегда',            icon: '⚔',  apply: { stat: 'attack',    value: 5  } },
+  { id: 'fr_def',       name: '🛡 Доспех героя',          desc: '+4 к защите навсегда',           icon: '🛡', apply: { stat: 'defense',   value: 4  } },
+  { id: 'fr_hp',        name: '❤ Кровь дракона',          desc: '+30 к максимуму HP навсегда',    icon: '❤',  apply: { stat: 'maxHp',     value: 30 } },
+  { id: 'fr_mp',        name: '💧 Кристалл маны',         desc: '+25 к максимуму маны навсегда',  icon: '💧', apply: { stat: 'maxMp',     value: 25 } },
+  { id: 'fr_crit',      name: '✦ Глаз убийцы',           desc: '+8% к шансу крита навсегда',     icon: '✦',  apply: { stat: 'critChance',value: 0.08} },
+  { id: 'fr_potion',    name: '🧪 Запас алхимика',        desc: '+2 зелья лечения',               icon: '🧪', apply: { stat: 'potions',   value: 2  } },
+  { id: 'fr_speed',     name: '💨 Ботинки ветра',         desc: '+3 к скорости навсегда',         icon: '💨', apply: { stat: 'speed',     value: 3  } },
+  { id: 'fr_lifesteal', name: '🩸 Жажда крови',           desc: 'Атаки восстанавливают 8% урона', icon: '🩸', apply: { passive: 'lifesteal', value: 0.08 } },
+  { id: 'fr_thorns',    name: '🌵 Шипы возмездия',        desc: 'Возврат 15% входящего урона',    icon: '🌵', apply: { passive: 'thorns',    value: 0.15 } }
+];
+
+function generateFloorBossReward(count = 3) {
+  const pool = [...FLOOR_BOSS_REWARDS].sort(() => Math.random() - 0.5);
+  return pool.slice(0, count).map(r => ({ id: r.id, name: r.name, desc: r.desc, icon: r.icon }));
+}
+
+function applyFloorBossReward(character, rewardId) {
+  const r = FLOOR_BOSS_REWARDS.find(x => x.id === rewardId);
+  if (!r) return false;
+  const { apply } = r;
+  if (!character.levelBonuses) character.levelBonuses = {};
+  if (!character.passives)     character.passives     = {};
+
+  if (apply.passive) {
+    character.passives[apply.passive] = apply.value;
+    return true;
+  }
+  if (apply.stat === 'potions') {
+    character.potions = (character.potions || 2) + apply.value;
+    return true;
+  }
+  if (apply.stat === 'critChance') {
+    character.levelBonuses.critChance = Math.min(0.70, (character.levelBonuses.critChance || 0) + apply.value);
+  } else {
+    character.levelBonuses[apply.stat] = (character.levelBonuses[apply.stat] || 0) + apply.value;
+  }
+  return true;
+}
+
 function generateFloor(floorNumber, playerCount) {
   const roomCount = 20 + Math.floor(Math.random() * 11); // 20-30 rooms
   const scaleFactor = 1 + (floorNumber - 1) * 0.15;
@@ -581,19 +622,26 @@ function getPlayerScaling(playerCount) {
 function generateEnemies(floorNumber, scaleFactor, playerCount, isBoss) {
   const scaling = getPlayerScaling(playerCount);
 
+  // Floor 1 "tutorial" scaling: boss is gentler, rooms have fewer, weaker enemies
+  const isFloor1 = floorNumber === 1;
+  const floor1StatMult = isFloor1 ? 0.65 : 1;
+  const floor1BossMult = isFloor1 ? 0.70 : 1;
+
   if (isBoss) {
     const bossType = getBossForFloor(floorNumber);
-    return [createEnemy(bossType, scaleFactor * scaling.bossMult)];
+    return [createEnemy(bossType, scaleFactor * scaling.bossMult * floor1BossMult)];
   }
 
   const enemyPool = getEnemiesForFloor(floorNumber);
+  // Floor 1: always spawn 1 fewer enemy than normal (minimum 1)
   const range = scaling.maxEnemies - scaling.minEnemies;
-  const count = scaling.minEnemies + Math.floor(Math.random() * (range + 1));
+  const rawCount = scaling.minEnemies + Math.floor(Math.random() * (range + 1));
+  const count = isFloor1 ? Math.max(1, rawCount - 1) : rawCount;
   const enemies = [];
 
   for (let i = 0; i < count; i++) {
     const typeId = enemyPool[Math.floor(Math.random() * enemyPool.length)];
-    enemies.push(createEnemy(typeId, scaleFactor * scaling.statMult));
+    enemies.push(createEnemy(typeId, scaleFactor * scaling.statMult * floor1StatMult));
   }
 
   return enemies;
@@ -626,4 +674,8 @@ function getAvailableRooms(floor) {
     .map(c => ({ ...floor.rooms[c.to], direction: c.direction, locked: !!c.locked }));
 }
 
-module.exports = { generateFloor, getAvailableRooms, getPlayerScaling, ROOM_TYPES, TREASURE_ITEMS, SHOP_ITEMS };
+module.exports = {
+  generateFloor, getAvailableRooms, getPlayerScaling,
+  ROOM_TYPES, TREASURE_ITEMS, SHOP_ITEMS,
+  FLOOR_BOSS_REWARDS, generateFloorBossReward, applyFloorBossReward
+};

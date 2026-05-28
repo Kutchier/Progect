@@ -110,6 +110,9 @@ function processPlayerAction(gameState, playerId, action) {
         if (dist > range) {
           return { logs: [`${target.name} вне зоны атаки (${dist.toFixed(1)} / макс ${range}).`], stateChanged: false };
         }
+        if (room.combatGrid && !hasLineOfSight(room.combatGrid.grid, player.gridX, player.gridZ, target.gridX, target.gridZ)) {
+          return { logs: [`Стена блокирует атаку на ${target.name}!`], stateChanged: false };
+        }
       }
 
       // Shadow Step passive: 2× damage, guaranteed crit, consume the effect
@@ -195,13 +198,16 @@ function processPlayerAction(gameState, playerId, action) {
         }
       }
 
-      // Ranged single-target: validate distance
+      // Ranged single-target: validate distance and LOS
       if (ability.rangeType === 'ranged' && ability.target === 'single') {
         const target = aliveEnemies.find(e => e.id === action.targetId);
         if (!target) return { logs: ['Цель не найдена.'], stateChanged: false };
         if (player.gridX !== undefined && target.gridX !== undefined && ability.maxRange) {
           if (gridDist(player.gridX, player.gridZ, target.gridX, target.gridZ) > ability.maxRange) {
             return { logs: [`${ability.name}: цель вне дальности (макс. ${ability.maxRange} кл.).`], stateChanged: false };
+          }
+          if (room.combatGrid && !hasLineOfSight(room.combatGrid.grid, player.gridX, player.gridZ, target.gridX, target.gridZ)) {
+            return { logs: [`${ability.name}: цель скрыта за стеной!`], stateChanged: false };
           }
         }
       }
@@ -861,6 +867,9 @@ function processEnemyTurns(gameState) {
       case 'poison_spray': { logs.push(`${enemy.name} распыляет яд!`); for (const p of alivePlayers) { addEffect(p, { type: 'poison', value: 0.06, duration: 3 }); logs.push(`  → ${p.name} отравлен на 3 хода.`); } break; }
       case 'spawn_spiders': { logs.push(`${enemy.name} призывает паучье потомство!`); for (const p of alivePlayers) { const { damage: d15 } = calculateDamage(enemy, p, 0.5); const { finalDamage: fd15 } = applyDamage(p, d15); addEffect(p, { type: 'poison', value: 0.05, duration: 2 }); logs.push(`  → ${p.name}: ${fd15} урона + яд.`); if (!p.isAlive) logs.push(`${p.name} пал...`); } break; }
       case 'curse': { addEffect(target, { type: 'attackDebuff', value: 0.30, duration: 2 }); addEffect(target, { type: 'defenseDebuff', value: 0.30, duration: 2 }); logs.push(`${enemy.name} проклинает ${target.name}! Атака и защита −30% на 2 хода.`); break; }
+      case 'arrow_shot': { const { damage: da, isCrit: ca } = calculateDamage(enemy, target, 1.5); const { finalDamage: fda, blocked: bla } = applyDamage(target, da); if (bla) logs.push(`${enemy.name} стреляет в ${target.name} — заблокировано!`); else { logs.push(`${enemy.name} выпускает стрелу в ${target.name}: ${fda} урона${ca ? ' [КРИТ!]' : ''}!`); if (!target.isAlive) logs.push(`${target.name} пал...`); } break; }
+      case 'poison_arrow': { const { damage: dp } = calculateDamage(enemy, target, 1.2); const { finalDamage: fdp } = applyDamage(target, dp); addEffect(target, { type: 'poison', value: 0.07, duration: 3 }); logs.push(`${enemy.name} выпускает отравленную стрелу в ${target.name}: ${fdp} урона! Отравление.`); if (!target.isAlive) logs.push(`${target.name} пал...`); break; }
+      case 'multishot': { logs.push(`${enemy.name} выпускает залп стрел!`); const msTargets = [...alivePlayers].sort(() => Math.random() - 0.5).slice(0, Math.min(3, alivePlayers.length)); for (const t of msTargets) { const { damage: dm, isCrit: cm } = calculateDamage(enemy, t, 1.2); const { finalDamage: fdm } = applyDamage(t, dm); logs.push(`  → ${t.name}: ${fdm} урона${cm ? ' [КРИТ!]' : ''}!`); if (!t.isAlive) logs.push(`${t.name} пал...`); } break; }
 
       default: {
         const { damage } = calculateDamage(enemy, target);
@@ -888,6 +897,352 @@ function chooseEnemyTarget(enemy, players) {
   if (taunted) return taunted;
 
   return players[Math.floor(Math.random() * players.length)];
+}
+
+// ─── Tactical AI ──────────────────────────────────────────────────────────────
+// Returns { ability, target, moveStyle } based on enemy type and battle context.
+// moveStyle: 'aggressive' | 'kite' | 'retreat' | 'flee' | 'hitrun' | 'flank' | 'hold' | 'slow' | 'berserk'
+function getEnemyTactics(enemy, alivePlayers, room) {
+  if (alivePlayers.length === 0) return null;
+
+  if (!enemy.tacticsState) enemy.tacticsState = { turnCount: 0 };
+  enemy.tacticsState.turnCount++;
+  const state = enemy.tacticsState;
+
+  const hpPct    = enemy.hp / enemy.maxHp;
+  const has      = a => enemy.abilities.includes(a);
+  const numP     = alivePlayers.length;
+  const rand     = () => alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+  const byLowHp  = () => alivePlayers.reduce((a, b) => a.hp < b.hp ? a : b);
+  const byHighHp = () => alivePlayers.reduce((a, b) => a.hp > b.hp ? a : b);
+  const byHighAtk = () => alivePlayers.reduce((a, b) =>
+    getEffectiveStat(a, 'attack') >= getEffectiveStat(b, 'attack') ? a : b);
+  const isSlowed   = p => hasEffect(p, 'slow');
+  const isPoisoned = p => hasEffect(p, 'poison');
+  const isCursed   = p => hasEffect(p, 'attackDebuff') || hasEffect(p, 'defenseDebuff');
+  const isStunned  = p => hasEffect(p, 'stun');
+
+  // Taunt always overrides
+  const taunted = alivePlayers.find(p =>
+    enemy.effects?.some(e => e.type === 'taunted' && e.targetId === p.id));
+  if (taunted) return { ability: 'attack', target: taunted, moveStyle: 'aggressive' };
+
+  switch (enemy.typeId) {
+
+    // ── TIER 1 ────────────────────────────────────────────────────────────────
+
+    case 'goblin': {
+      // Cowardly: attacks weakest, panics and retreats when low HP
+      const target = byLowHp();
+      if (hpPct < 0.30) return { ability: 'attack', target, moveStyle: 'retreat' };
+      return { ability: 'attack', target, moveStyle: 'aggressive' };
+    }
+
+    case 'skeleton': {
+      // Relentless hunter: always targets lowest HP, never retreats
+      return { ability: 'attack', target: byLowHp(), moveStyle: 'aggressive' };
+    }
+
+    case 'rat_swarm': {
+      // Swarmer: targets strongest, always tries to poison
+      const target = byHighHp();
+      return { ability: has('poison_bite') ? 'poison_bite' : 'attack', target, moveStyle: 'aggressive' };
+    }
+
+    case 'cave_bat': {
+      // Hit-and-run: stuns then retreats
+      const ability = has('stun_bash') && Math.random() < 0.55 ? 'stun_bash' : 'attack';
+      return { ability, target: rand(), moveStyle: 'hitrun' };
+    }
+
+    case 'kobold': {
+      // Trapper: slows targets, then kites at safe distance
+      const unslowed = alivePlayers.filter(p => !isSlowed(p));
+      const target = byLowHp();
+      const ability = has('throw_trap') && unslowed.length > 0 ? 'throw_trap' : 'attack';
+      return { ability, target, moveStyle: 'kite' };
+    }
+
+    // ── TIER 2 ────────────────────────────────────────────────────────────────
+
+    case 'zombie': {
+      // Relentless: locks onto one target for entire fight, always poisons
+      if (!state.lockedTarget || !alivePlayers.find(p => p.id === state.lockedTarget)) {
+        state.lockedTarget = rand().id;
+      }
+      const target = alivePlayers.find(p => p.id === state.lockedTarget) || rand();
+      return { ability: has('poison_bite') ? 'poison_bite' : 'attack', target, moveStyle: 'aggressive' };
+    }
+
+    case 'dark_mage': {
+      // Kiter: curses first, then fireballs — never comes close
+      const target = byLowHp();
+      let ability = 'attack';
+      if (has('curse') && !isCursed(target)) ability = 'curse';
+      else if (has('fireball')) ability = 'fireball';
+      return { ability, target, moveStyle: 'kite' };
+    }
+
+    case 'werewolf': {
+      // Berserker: howls first, then power-bites, rages at low HP
+      const target = byHighHp();
+      let ability = 'attack';
+      if (state.turnCount === 1 && has('howl')) {
+        ability = 'howl';
+      } else if (hpPct < 0.35 && has('feral_bite')) {
+        ability = 'feral_bite';
+      } else if (has('feral_bite') && hasEffect(enemy, 'attackBonus')) {
+        ability = 'feral_bite';
+      } else if (has('howl') && !hasEffect(enemy, 'attackBonus') && Math.random() < 0.30) {
+        ability = 'howl';
+      } else {
+        ability = has('feral_bite') && Math.random() < 0.55 ? 'feral_bite' : 'attack';
+      }
+      return { ability, target, moveStyle: hpPct < 0.30 ? 'berserk' : 'aggressive' };
+    }
+
+    case 'giant_spider': {
+      // Webber: slows first, then stacks poison on slowed targets
+      const unslowed = alivePlayers.filter(p => !isSlowed(p));
+      const target = unslowed.length > 0
+        ? unslowed[Math.floor(Math.random() * unslowed.length)]
+        : byLowHp();
+      let ability = 'attack';
+      if (has('web_trap') && unslowed.length > 0) ability = 'web_trap';
+      else if (has('poison_bite')) ability = 'poison_bite';
+      return { ability, target, moveStyle: 'aggressive' };
+    }
+
+    case 'shadow': {
+      // Flanker: targets highest-attack player, debuffs then drains
+      const target = byHighAtk();
+      let ability = 'attack';
+      if (has('shadow_bind') && !isCursed(target)) ability = 'shadow_bind';
+      else if (has('drain')) ability = 'drain';
+      return { ability, target, moveStyle: 'flank' };
+    }
+
+    // ── TIER 3 ────────────────────────────────────────────────────────────────
+
+    case 'troll': {
+      // Tank: regenerates when hurt, heavy-blows otherwise
+      const target = rand();
+      let ability = 'attack';
+      if (has('regenerate') && hpPct < 0.45) ability = 'regenerate';
+      else if (has('heavy_blow') && Math.random() < 0.60) ability = 'heavy_blow';
+      return { ability, target, moveStyle: 'aggressive' };
+    }
+
+    case 'vampire': {
+      // Predator: charms the biggest threat, drains when hurt
+      const target = byHighAtk();
+      let ability = 'attack';
+      if (has('charm') && !isStunned(target) && Math.random() < 0.35) {
+        ability = 'charm';
+      } else if (has('blood_drain') && hpPct < 0.55) {
+        ability = 'blood_drain';
+      } else if (has('blood_drain') && Math.random() < 0.45) {
+        ability = 'blood_drain';
+      }
+      return { ability, target, moveStyle: 'aggressive' };
+    }
+
+    case 'death_knight': {
+      // Opener: death_bolt first turn, then heavy melee
+      const target = byLowHp();
+      let ability = 'attack';
+      if (state.turnCount === 1 && has('death_bolt')) {
+        ability = 'death_bolt';
+      } else if (has('heavy_blow') && Math.random() < 0.55) {
+        ability = 'heavy_blow';
+      } else if (has('death_bolt') && Math.random() < 0.25) {
+        ability = 'death_bolt';
+      }
+      return { ability, target, moveStyle: 'aggressive' };
+    }
+
+    case 'golem': {
+      // Unstoppable: always heavy_blow, moves slowly and steadily
+      return { ability: has('heavy_blow') ? 'heavy_blow' : 'attack', target: rand(), moveStyle: 'slow' };
+    }
+
+    case 'harpy': {
+      // Hit-and-run: screech first, wing-buffet on groups, then retreats
+      const target = byLowHp();
+      let ability = 'attack';
+      if (state.turnCount === 1 && has('screech')) {
+        ability = 'screech';
+      } else if (has('wing_buffet') && numP >= 2 && Math.random() < 0.55) {
+        ability = 'wing_buffet';
+      } else if (has('screech') && !hasEffect(alivePlayers[0], 'attackDebuff') && Math.random() < 0.25) {
+        ability = 'screech';
+      }
+      return { ability, target, moveStyle: 'hitrun' };
+    }
+
+    // ── TIER 4 ────────────────────────────────────────────────────────────────
+
+    case 'lich': {
+      // Necromancer: revives dead first, then death_bolt, curses weak targets
+      const target = byLowHp();
+      const deadEnemies = room.enemies.filter(e => !e.isAlive);
+      let ability = 'attack';
+      if (has('raise_dead') && deadEnemies.length > 0) {
+        ability = 'raise_dead';
+      } else if (has('curse') && !isCursed(target)) {
+        ability = 'curse';
+      } else if (has('death_bolt') && Math.random() < 0.65) {
+        ability = 'death_bolt';
+      }
+      return { ability, target, moveStyle: 'hold' };
+    }
+
+    case 'demon': {
+      // Chaos: hellfire vs groups, shadow_bind then devour to heal
+      const target = byLowHp();
+      let ability = 'attack';
+      if (has('shadow_bind') && !isCursed(target) && Math.random() < 0.35) {
+        ability = 'shadow_bind';
+      } else if (has('hellfire') && numP >= 2 && Math.random() < 0.55) {
+        ability = 'hellfire';
+      } else if (has('devour') && hpPct < 0.50) {
+        ability = 'devour';
+      } else if (has('hellfire') && Math.random() < 0.35) {
+        ability = 'hellfire';
+      }
+      return { ability, target, moveStyle: 'aggressive' };
+    }
+
+    case 'witch': {
+      // Spellcaster: curse → raise_dead → hellfire cycle, kites
+      const target = byLowHp();
+      const deadEnemies = room.enemies.filter(e => !e.isAlive);
+      let ability = 'attack';
+      if (state.turnCount === 1 && has('curse')) {
+        ability = 'curse';
+      } else if (has('raise_dead') && deadEnemies.length > 0) {
+        ability = 'raise_dead';
+      } else if (has('hellfire') && Math.random() < 0.55) {
+        ability = 'hellfire';
+      } else if (has('curse') && !isCursed(target) && Math.random() < 0.40) {
+        ability = 'curse';
+      }
+      return { ability, target, moveStyle: 'kite' };
+    }
+
+    case 'frost_giant': {
+      // Slows then smashes: ice_breath first, then heavy_blow on slowed targets
+      const slowed = alivePlayers.filter(isSlowed);
+      const target = slowed.length > 0 ? slowed[0] : rand();
+      let ability = 'attack';
+      if (state.turnCount === 1 && has('ice_breath')) {
+        ability = 'ice_breath';
+      } else if (has('ice_breath') && alivePlayers.every(p => !isSlowed(p)) && Math.random() < 0.40) {
+        ability = 'ice_breath';
+      } else if (has('heavy_blow') && (slowed.length > 0 || Math.random() < 0.50)) {
+        ability = 'heavy_blow';
+      }
+      return { ability, target, moveStyle: 'aggressive' };
+    }
+
+    case 'nightmare': {
+      // Fear+pain: shadow_bind opener, hellfire AoE, devour when dying
+      const target = byLowHp();
+      let ability = 'attack';
+      if (state.turnCount === 1 && has('shadow_bind')) {
+        ability = 'shadow_bind';
+      } else if (has('devour') && hpPct < 0.40) {
+        ability = 'devour';
+      } else if (has('hellfire') && Math.random() < 0.50) {
+        ability = 'hellfire';
+      } else if (has('shadow_bind') && !isCursed(target) && Math.random() < 0.30) {
+        ability = 'shadow_bind';
+      }
+      return { ability, target, moveStyle: 'aggressive' };
+    }
+
+    // ── RANGED ────────────────────────────────────────────────────────────────
+
+    case 'goblin_archer': {
+      // Pure kiter: always runs from melee, only shoots
+      return { ability: has('arrow_shot') ? 'arrow_shot' : 'attack', target: byLowHp(), moveStyle: 'flee' };
+    }
+
+    case 'skeleton_archer': {
+      // Poisoner: always poisons fresh targets first
+      const target = byLowHp();
+      const unpoisoned = alivePlayers.filter(p => !isPoisoned(p));
+      const ability = has('poison_arrow') && unpoisoned.length > 0
+        ? 'poison_arrow'
+        : (has('arrow_shot') ? 'arrow_shot' : 'attack');
+      return { ability, target, moveStyle: 'kite' };
+    }
+
+    case 'dark_ranger': {
+      // Tactician: multishot vs groups, poison+arrow vs single
+      const target = byLowHp();
+      let ability = 'attack';
+      if (has('multishot') && numP >= 2 && Math.random() < 0.60) {
+        ability = 'multishot';
+      } else if (has('poison_arrow') && !isPoisoned(target)) {
+        ability = 'poison_arrow';
+      } else {
+        ability = has('arrow_shot') ? 'arrow_shot' : 'attack';
+      }
+      return { ability, target, moveStyle: 'kite' };
+    }
+
+    // ── BOSSES ────────────────────────────────────────────────────────────────
+
+    case 'dragon_boss': {
+      const target = byLowHp();
+      const t = state.turnCount;
+      let ability = 'attack';
+      if (hpPct < 0.50) {
+        if (has('devour') && hpPct < 0.30) ability = 'devour';
+        else if (t % 3 === 0 && has('dragon_breath')) ability = 'dragon_breath';
+        else if (t % 3 === 1 && has('tail_sweep')) ability = 'tail_sweep';
+        else if (has('wing_buffet')) ability = 'wing_buffet';
+      } else {
+        if (t % 4 === 0 && has('dragon_breath')) ability = 'dragon_breath';
+        else if (t % 4 === 1 && has('tail_sweep')) ability = 'tail_sweep';
+        else if (t % 4 === 2 && has('wing_buffet')) ability = 'wing_buffet';
+        else ability = has('devour') ? 'devour' : 'attack';
+      }
+      return { ability, target, moveStyle: 'aggressive' };
+    }
+
+    case 'spider_queen': {
+      const target = byLowHp();
+      const t = state.turnCount;
+      let ability = 'attack';
+      if (hpPct < 0.40 && has('poison_spray')) {
+        ability = 'poison_spray';
+      } else if (t % 4 === 1 && has('poison_spray')) {
+        ability = 'poison_spray';
+      } else if (t % 4 === 2 && has('spawn_spiders')) {
+        ability = 'spawn_spiders';
+      } else if (t % 4 === 3 && has('web_trap')) {
+        ability = 'web_trap';
+      }
+      return { ability, target, moveStyle: 'hold' };
+    }
+
+    case 'chaos_lord': {
+      const t = state.turnCount;
+      let ability = 'attack';
+      if (t % 3 === 0 && has('chaos_bolt')) ability = 'chaos_bolt';
+      else if (t % 3 === 1 && has('hellfire')) ability = 'hellfire';
+      else if (has('death_bolt') && Math.random() < 0.50) ability = 'death_bolt';
+      else ability = has('dragon_breath') ? 'dragon_breath' : 'attack';
+      return { ability, target: rand(), moveStyle: 'aggressive' };
+    }
+
+    default: {
+      const target = enemy.ai === 'low_hp_target' ? byLowHp() : rand();
+      return { ability: chooseEnemyAbility(enemy), target, moveStyle: 'aggressive' };
+    }
+  }
 }
 
 function tickEffects(entity) {
@@ -997,6 +1352,28 @@ function resetActed(gameState) {
   for (const ability of Object.values(gameState.players).flatMap(p => p.abilities)) {
     if (ability.currentCooldown > 0) ability.currentCooldown--;
   }
+}
+
+// ─── Line of Sight ────────────────────────────────────────────────────────────
+
+function hasLineOfSight(grid, x1, z1, x2, z2) {
+  // Bresenham's line algorithm — returns false if any intermediate cell is a wall/obstacle
+  const dx = Math.abs(x2 - x1);
+  const dz = Math.abs(z2 - z1);
+  const sx = x1 < x2 ? 1 : -1;
+  const sz = z1 < z2 ? 1 : -1;
+  let err = dx - dz;
+  let cx = x1, cz = z1;
+
+  while (cx !== x2 || cz !== z2) {
+    const e2 = 2 * err;
+    if (e2 > -dz) { err -= dz; cx += sx; }
+    if (e2 < dx)  { err += dx; cz += sz; }
+    if (cx === x2 && cz === z2) break;
+    const cell = grid[cx]?.[cz];
+    if (cell === 'wall' || cell === 'obstacle') return false;
+  }
+  return true;
 }
 
 // ─── Grid Combat System ───────────────────────────────────────────────────────
@@ -1444,12 +1821,15 @@ function processSingleEnemyTurn(gameState, enemy) {
   }
 
   const atkRange = enemy.attackRange || 1.5;
-  const isRanged = atkRange > 2;
 
-  // Movement: melee enemies close in, ranged enemies maintain optimal distance
+  // ── Tactical AI decision ──────────────────────────────────────────────────
+  const tactics = getEnemyTactics(enemy, alivePlayers, room);
+  if (!tactics) return logs;
+  let { ability, target, moveStyle } = tactics;
+
+  // ── Movement ──────────────────────────────────────────────────────────────
   if (room.combatGrid) {
-    let nearestPlayer = null;
-    let nearestDist = Infinity;
+    let nearestPlayer = null, nearestDist = Infinity;
     for (const p of alivePlayers) {
       if (p.gridX === undefined) continue;
       const d = gridDist(enemy.gridX, enemy.gridZ, p.gridX, p.gridZ);
@@ -1457,54 +1837,140 @@ function processSingleEnemyTurn(gameState, enemy) {
     }
 
     if (nearestPlayer) {
-      const moveRange = 2;
-      const reachable = bfsReachable(enemy.gridX, enemy.gridZ, moveRange, room.combatGrid, gameState.players, room.enemies.filter(e => e.isAlive), enemy.id);
+      let baseMoveRange = 2;
+      if (moveStyle === 'slow') baseMoveRange = 1;
+      if (moveStyle === 'berserk') baseMoveRange = 3;
 
-      if (!isRanged && nearestDist > atkRange) {
-        // Melee: move as close as possible
-        let bestDist = nearestDist;
-        let bestPos = null;
-        for (const key of reachable) {
-          const [bx, bz] = key.split(',').map(Number);
-          const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
-          if (d < bestDist) { bestDist = d; bestPos = { x: bx, z: bz }; }
+      const reachable = bfsReachable(enemy.gridX, enemy.gridZ, baseMoveRange, room.combatGrid,
+        gameState.players, room.enemies.filter(e => e.isAlive), enemy.id);
+
+      let bestPos = null;
+
+      switch (moveStyle) {
+        case 'aggressive':
+        case 'berserk':
+        case 'slow': {
+          const moveTarget = (target && target.gridX !== undefined) ? target : nearestPlayer;
+          const distToTarget = gridDist(enemy.gridX, enemy.gridZ, moveTarget.gridX, moveTarget.gridZ);
+          if (distToTarget > atkRange) {
+            let best = distToTarget;
+            for (const key of reachable) {
+              const [bx, bz] = key.split(',').map(Number);
+              const d = gridDist(bx, bz, moveTarget.gridX, moveTarget.gridZ);
+              if (d < best) { best = d; bestPos = { x: bx, z: bz }; }
+            }
+          }
+          break;
         }
-        if (bestPos) {
-          enemy.gridX = bestPos.x;
-          enemy.gridZ = bestPos.z;
-          if (room.combatGrid.elevations) enemy.gridY = room.combatGrid.elevations[bestPos.x][bestPos.z];
+
+        case 'kite': {
+          const idealDist = atkRange * 0.6;
+          if (nearestDist > atkRange) {
+            let best = nearestDist;
+            for (const key of reachable) {
+              const [bx, bz] = key.split(',').map(Number);
+              const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
+              if (d < best) { best = d; bestPos = { x: bx, z: bz }; }
+            }
+          } else {
+            let bestScore = Infinity;
+            for (const key of reachable) {
+              const [bx, bz] = key.split(',').map(Number);
+              const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
+              const score = Math.abs(d - idealDist);
+              if (d <= atkRange && score < bestScore) { bestScore = score; bestPos = { x: bx, z: bz }; }
+            }
+          }
+          break;
         }
-      } else if (isRanged && nearestDist > atkRange) {
-        // Ranged: move to get within attack range, but not too close (prefer ~60% of range)
-        const idealDist = atkRange * 0.6;
-        let bestScore = Infinity;
-        let bestPos = null;
-        for (const key of reachable) {
-          const [bx, bz] = key.split(',').map(Number);
-          const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
-          const score = Math.abs(d - idealDist);
-          if (d <= atkRange && score < bestScore) { bestScore = score; bestPos = { x: bx, z: bz }; }
-        }
-        if (!bestPos) {
-          // Fallback: just get closer
-          let bestDist = nearestDist;
+
+        case 'retreat': {
+          const pPositions = alivePlayers.filter(p => p.gridX !== undefined);
+          let bestMin = -Infinity;
           for (const key of reachable) {
             const [bx, bz] = key.split(',').map(Number);
-            const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
-            if (d < bestDist) { bestDist = d; bestPos = { x: bx, z: bz }; }
+            const minD = Math.min(...pPositions.map(p => gridDist(bx, bz, p.gridX, p.gridZ)));
+            if (minD > bestMin) { bestMin = minD; bestPos = { x: bx, z: bz }; }
           }
+          break;
         }
-        if (bestPos) {
-          enemy.gridX = bestPos.x;
-          enemy.gridZ = bestPos.z;
-          if (room.combatGrid.elevations) enemy.gridY = room.combatGrid.elevations[bestPos.x][bestPos.z];
+
+        case 'flee': {
+          if (nearestDist < 3.5) {
+            let best = -Infinity;
+            for (const key of reachable) {
+              const [bx, bz] = key.split(',').map(Number);
+              const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
+              if (d > best) { best = d; bestPos = { x: bx, z: bz }; }
+            }
+          } else {
+            const idealDist = atkRange * 0.7;
+            let bestScore = Infinity;
+            for (const key of reachable) {
+              const [bx, bz] = key.split(',').map(Number);
+              const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
+              const score = Math.abs(d - idealDist);
+              if (score < bestScore) { bestScore = score; bestPos = { x: bx, z: bz }; }
+            }
+          }
+          break;
         }
+
+        case 'hitrun': {
+          const ts = enemy.tacticsState;
+          const moveTarget = (target && target.gridX !== undefined) ? target : nearestPlayer;
+          const distToTarget = gridDist(enemy.gridX, enemy.gridZ, moveTarget.gridX, moveTarget.gridZ);
+          if (ts.hitrunRetreat) {
+            ts.hitrunRetreat = false;
+            let best = -Infinity;
+            for (const key of reachable) {
+              const [bx, bz] = key.split(',').map(Number);
+              const d = gridDist(bx, bz, nearestPlayer.gridX, nearestPlayer.gridZ);
+              if (d > best) { best = d; bestPos = { x: bx, z: bz }; }
+            }
+          } else if (distToTarget <= atkRange) {
+            ts.hitrunRetreat = true;
+          } else {
+            let best = distToTarget;
+            for (const key of reachable) {
+              const [bx, bz] = key.split(',').map(Number);
+              const d = gridDist(bx, bz, moveTarget.gridX, moveTarget.gridZ);
+              if (d < best) { best = d; bestPos = { x: bx, z: bz }; }
+            }
+          }
+          break;
+        }
+
+        case 'flank': {
+          const moveTarget = (target && target.gridX !== undefined) ? target : nearestPlayer;
+          const distToTarget = gridDist(enemy.gridX, enemy.gridZ, moveTarget.gridX, moveTarget.gridZ);
+          if (distToTarget > atkRange) {
+            const others = room.enemies.filter(e => e.isAlive && e.id !== enemy.id && e.gridX !== undefined);
+            let bestScore = Infinity;
+            for (const key of reachable) {
+              const [bx, bz] = key.split(',').map(Number);
+              const dTgt = gridDist(bx, bz, moveTarget.gridX, moveTarget.gridZ);
+              const crowd = others.reduce((s, oe) => s + Math.max(0, 2 - gridDist(bx, bz, oe.gridX, oe.gridZ)), 0);
+              const score = dTgt + crowd * 0.5;
+              if (score < bestScore) { bestScore = score; bestPos = { x: bx, z: bz }; }
+            }
+          }
+          break;
+        }
+
+        case 'hold':
+        default:
+          break;
+      }
+
+      if (bestPos) {
+        enemy.gridX = bestPos.x;
+        enemy.gridZ = bestPos.z;
+        if (room.combatGrid.elevations) enemy.gridY = room.combatGrid.elevations[bestPos.x][bestPos.z];
       }
     }
   }
 
-  // Choose target and attack
-  let target = chooseEnemyTarget(enemy, alivePlayers);
   if (!target) return logs;
 
   if (hasEffect(enemy, 'missChance')) {
@@ -1512,23 +1978,31 @@ function processSingleEnemyTurn(gameState, enemy) {
     if (Math.random() < missEff.value) { logs.push(`${enemy.name} промахивается!`); return logs; }
   }
 
-  // Check if target is in attack range (use enemy's actual range)
+  // Range + LOS check
   if (target.gridX !== undefined && enemy.gridX !== undefined) {
     const dist = gridDist(enemy.gridX, enemy.gridZ, target.gridX, target.gridZ);
     if (dist > atkRange) {
       logs.push(`${enemy.name} не может достать до цели.`);
       return logs;
     }
+    if (room.combatGrid && !hasLineOfSight(room.combatGrid.grid, enemy.gridX, enemy.gridZ, target.gridX, target.gridZ)) {
+      const alternate = alivePlayers.find(p =>
+        p !== target && p.gridX !== undefined &&
+        gridDist(enemy.gridX, enemy.gridZ, p.gridX, p.gridZ) <= atkRange &&
+        hasLineOfSight(room.combatGrid.grid, enemy.gridX, enemy.gridZ, p.gridX, p.gridZ)
+      );
+      if (alternate) { target = alternate; }
+      else { logs.push(`${enemy.name} не видит цели сквозь стену.`); return logs; }
+    }
   }
 
-  // Dodge check: player speed gives up to 20% dodge chance
+  // Dodge check
   const dodgeChance = Math.min(0.20, (target.speed || 0) * 0.008);
   if (dodgeChance > 0 && Math.random() < dodgeChance) {
     logs.push(`${target.name} уклоняется от атаки ${enemy.name}!`);
     return logs;
   }
 
-  const ability = chooseEnemyAbility(enemy);
   switch (ability) {
     case 'attack': {
       const { damage, isCrit } = calculateDamage(enemy, target);
@@ -1795,6 +2269,38 @@ function processSingleEnemyTurn(gameState, enemy) {
       break;
     }
 
+    case 'arrow_shot': {
+      const { damage, isCrit } = calculateDamage(enemy, target, 1.5);
+      const { finalDamage, blocked } = applyDamage(target, damage);
+      if (blocked) logs.push(`${enemy.name} стреляет в ${target.name} — заблокировано!`);
+      else {
+        logs.push(`${enemy.name} выпускает стрелу в ${target.name}: ${finalDamage} урона${isCrit ? ' [КРИТ!]' : ''}!`);
+        if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      }
+      break;
+    }
+
+    case 'poison_arrow': {
+      const { damage } = calculateDamage(enemy, target, 1.2);
+      const { finalDamage } = applyDamage(target, damage);
+      addEffect(target, { type: 'poison', value: 0.07, duration: 3 });
+      logs.push(`${enemy.name} выпускает отравленную стрелу в ${target.name}: ${finalDamage} урона! Отравление на 3 хода.`);
+      if (!target.isAlive) logs.push(`${target.name} пал в бою...`);
+      break;
+    }
+
+    case 'multishot': {
+      logs.push(`${enemy.name} выпускает залп стрел!`);
+      const msTargets = [...alivePlayers].sort(() => Math.random() - 0.5).slice(0, Math.min(3, alivePlayers.length));
+      for (const t of msTargets) {
+        const { damage: dm, isCrit: cm } = calculateDamage(enemy, t, 1.2);
+        const { finalDamage: fdm } = applyDamage(t, dm);
+        logs.push(`  → ${t.name}: ${fdm} урона${cm ? ' [КРИТ!]' : ''}!`);
+        if (!t.isAlive) logs.push(`${t.name} пал в бою...`);
+      }
+      break;
+    }
+
     default: {
       const { damage } = calculateDamage(enemy, target);
       const { finalDamage } = applyDamage(target, damage);
@@ -1821,5 +2327,6 @@ module.exports = {
   getMoveRange,
   getAttackRange,
   gridDist,
-  bfsReachable
+  bfsReachable,
+  hasLineOfSight
 };

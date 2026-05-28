@@ -1211,6 +1211,10 @@ function equipFromBag(itemId) {
     const hasRing2 = !!ch.equipment?.ring2;
     slot = (!hasRing1) ? 'ring1' : (!hasRing2) ? 'ring2' : 'ring1';
   }
+  // For weapons: if mainHand is occupied but offHand is free → use offHand
+  if (slot === 'mainHand' && ch.equipment?.mainHand && !ch.equipment?.offHand) {
+    slot = 'offHand';
+  }
 
   socket.emit('equip_item', { itemId, slot }, (res) => {
     if (!res?.ok) showModal('Нельзя экипировать', res?.reason || 'Ошибка.', [{ label: 'Закрыть', onclick: 'hideModal()' }]);
@@ -1356,6 +1360,7 @@ function loadSavedSession() {
 
 // ─── Screen Management ────────────────────────────────────────────────────────
 function showScreen(id) {
+  if (typeof SFX !== 'undefined') SFX.play('transition');
   document.querySelectorAll('.screen').forEach(s => {
     s.classList.remove('active');
     s.style.display = 'none';
@@ -1407,6 +1412,15 @@ socket.on('room_update', (state) => {
 socket.on('log', (entry) => {
   appendCombatLog(entry.msg);
   if (window.Enemy3D && isEnemyAttackLog(entry.msg)) Enemy3D.triggerAttack();
+  if (typeof SFX !== 'undefined') {
+    const m = entry.msg;
+    if (m.includes('уровень') || m.includes('ур.') || m.includes('выбирает:')) SFX.play('level_up');
+    else if (m.includes('получает') && m.includes('урона'))                    SFX.play('combat_hit');
+    else if (m.includes('повержен') || m.includes('пал') || m.includes('умирает')) SFX.play('kill');
+    else if (m.includes('Замок взломан') || m.includes('Дверь открыта'))        SFX.play('door_open');
+    else if (m.includes('Замок устоял') || m.includes('провалена') || m.includes('сорвался')) SFX.play('door_fail');
+    else if (m.includes('реликвию') || m.includes('наследие'))                  SFX.play('equip');
+  }
 });
 
 socket.on('bonus_update', ({ bonus, expiresAt }) => {
@@ -1414,6 +1428,7 @@ socket.on('bonus_update', ({ bonus, expiresAt }) => {
   S.bonusExpiresAt = expiresAt;
   updateBonusBanner();
   startBonusTimer();
+  if (typeof SFX !== 'undefined') SFX.play('bonus');
 });
 
 socket.on('chat', (entry) => {
@@ -1777,9 +1792,16 @@ function renderLevelUpOverlay(state) {
     overlay.id = 'levelup-overlay';
     overlay.innerHTML = `
       <div class="levelup-box">
-        <div class="levelup-title">✨ Повышение уровня!</div>
-        <div class="levelup-subtitle">Выберите улучшение:</div>
+        <div class="levelup-ornament">
+          <span>──</span>
+          <span class="levelup-ornament-star">✦</span>
+          <span>──</span>
+        </div>
+        <div class="levelup-title">⚔ Повышение уровня! ⚔</div>
+        <div class="levelup-divider"></div>
+        <div class="levelup-subtitle">Выберите улучшение</div>
         <div class="levelup-options" id="levelup-options"></div>
+        <div class="levelup-footer-ornament">✦</div>
       </div>`;
     document.body.appendChild(overlay);
   }
@@ -1787,8 +1809,8 @@ function renderLevelUpOverlay(state) {
   overlay.classList.remove('hidden');
 
   const optionsEl = document.getElementById('levelup-options');
-  optionsEl.innerHTML = pending.options.map(opt => `
-    <div class="levelup-card" data-id="${opt.id}">
+  optionsEl.innerHTML = pending.options.map((opt, i) => `
+    <div class="levelup-card" data-id="${opt.id}" style="animation-delay:${0.18 + i * 0.1}s">
       <div class="levelup-card-icon">${opt.icon}</div>
       <div class="levelup-card-name">${opt.name}</div>
       <div class="levelup-card-desc">${opt.desc}</div>
@@ -3783,34 +3805,136 @@ function sendGameChat() {
 
 // ─── End Screen ───────────────────────────────────────────────────────────────
 function showFloorSummary(summary) {
-  let overlay = document.getElementById('floor-summary-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'floor-summary-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);';
-    document.body.appendChild(overlay);
+  const existing = document.getElementById('floor-summary-overlay');
+  if (existing) existing.remove();
+
+  // Inject keyframes once
+  if (!document.getElementById('floor-summary-styles')) {
+    const style = document.createElement('style');
+    style.id = 'floor-summary-styles';
+    style.textContent = `
+      @keyframes fsOverlayIn { from { opacity:0 } to { opacity:1 } }
+      @keyframes fsPanelIn   { from { opacity:0; transform:translateY(-32px) scale(0.93) } to { opacity:1; transform:translateY(0) scale(1) } }
+      @keyframes fsTitlePulse {
+        0%,100% { text-shadow: 0 0 8px rgba(212,175,55,0.4), 0 0 24px rgba(212,175,55,0.2) }
+        50%      { text-shadow: 0 0 18px rgba(240,208,96,0.9), 0 0 40px rgba(212,175,55,0.5), 0 2px 0 #5c3d0a }
+      }
+      @keyframes fsStarSpin { from { transform:rotate(0deg) scale(1.1) } to { transform:rotate(360deg) scale(1.1) } }
+      @keyframes fsRowIn { from { opacity:0; transform:translateX(-12px) } to { opacity:1; transform:translateX(0) } }
+      @keyframes fsCountdown { from { width:100% } to { width:0% } }
+      @keyframes fsSparklePop {
+        0%   { opacity:0; transform:scale(0.5) translateY(0) }
+        30%  { opacity:1; transform:scale(1.3) translateY(-6px) }
+        100% { opacity:0; transform:scale(0.8) translateY(-18px) }
+      }
+      #floor-summary-overlay { animation: fsOverlayIn 0.35s ease both }
+      #floor-summary-panel   { animation: fsPanelIn 0.45s cubic-bezier(0.22,1,0.36,1) both }
+      #floor-summary-title   { animation: fsTitlePulse 2.4s ease-in-out infinite }
+      .fs-row                { animation: fsRowIn 0.35s ease both }
+      #fs-bar-inner          { animation: fsCountdown 6.5s linear both }
+    `;
+    document.head.appendChild(style);
   }
 
-  const playerRows = (summary.players || []).map(p => {
+  const overlay = document.createElement('div');
+  overlay.id = 'floor-summary-overlay';
+  overlay.style.cssText = `
+    position:fixed;inset:0;z-index:9999;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(4,12,20,0.88);
+    backdrop-filter:blur(4px);
+  `;
+
+  const playerRows = (summary.players || []).map((p, i) => {
     const hpPct = Math.round(p.hp / p.maxHp * 100);
-    const hpColor = hpPct > 60 ? 'var(--green)' : hpPct > 30 ? 'var(--gold)' : 'var(--red-bright)';
-    return `<div style="display:flex;gap:12px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.07)">
-      <span style="font-size:16px">${p.symbol}</span>
-      <span style="flex:1;color:${p.isAlive ? 'var(--text)' : 'var(--text-dim)'}">${p.name} <span style="color:var(--text-dim);font-size:11px">${p.className} Lv${p.level}</span></span>
-      <span style="color:${hpColor}">${p.hp}/${p.maxHp} HP</span>
-      <span style="color:var(--red-bright)">☠ ${p.kills}</span>
-      <span style="color:var(--gold)">💰 ${p.gold}</span>
-    </div>`;
+    const hpColor = hpPct > 60 ? '#2aaa58' : hpPct > 30 ? '#f0d060' : '#c03030';
+    const hpBarColor = hpPct > 60 ? '#1a6635' : hpPct > 30 ? '#8b6420' : '#741414';
+    const alive = p.isAlive;
+    return `
+      <div class="fs-row" style="
+        display:flex;gap:10px;align-items:center;
+        padding:8px 12px;
+        background:${alive ? 'rgba(212,175,55,0.05)' : 'rgba(0,0,0,0.3)'};
+        border:1px solid ${alive ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.05)'};
+        border-radius:4px;
+        animation-delay:${0.55 + i * 0.08}s;
+        opacity:0;
+      ">
+        <span style="font-size:18px;width:24px;text-align:center;filter:${alive ? 'none' : 'grayscale(1) opacity(0.5)'}">${p.symbol}</span>
+        <div style="flex:1;min-width:0">
+          <div style="color:${alive ? 'var(--text-bright,#ede0c0)' : 'var(--text-dim,#5878a0)'};font-size:13px;font-family:var(--font,serif)">
+            ${p.name}${alive ? '' : ' <span style="color:#c03030;font-size:10px">☠ пал</span>'}
+          </div>
+          <div style="color:var(--text-dim,#5878a0);font-size:10px">${p.className} · Ур.${p.level}</div>
+        </div>
+        <div style="text-align:right;min-width:90px">
+          <div style="font-size:10px;color:${hpColor};margin-bottom:3px">${p.hp}/${p.maxHp} HP</div>
+          <div style="height:4px;background:rgba(0,0,0,0.5);border-radius:2px;overflow:hidden">
+            <div style="width:${hpPct}%;height:100%;background:${hpBarColor};border-radius:2px;
+              box-shadow:0 0 6px ${hpColor}66;transition:width 0.6s ease"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;font-size:12px;margin-left:4px">
+          <span style="color:#c03030" title="Убийства">☠${p.kills}</span>
+          <span style="color:#f0d060" title="Золото">◈${p.gold}</span>
+        </div>
+      </div>`;
   }).join('');
 
   overlay.innerHTML = `
-    <div style="background:var(--bg-panel,#1a1a2e);border:1px solid var(--border,#333);border-radius:8px;padding:24px;max-width:480px;width:90%;font-family:monospace">
-      <div style="text-align:center;color:var(--gold,#d4a017);font-size:20px;margin-bottom:4px">★ ЭТАЖ ${summary.floorNumber} ПРОЙДЕН ★</div>
-      <div style="text-align:center;color:var(--text-dim);font-size:12px;margin-bottom:16px">Следующий этаж через несколько секунд...</div>
-      ${playerRows}
+    <div id="floor-summary-panel" style="
+      background:linear-gradient(160deg, var(--stone-mid,#111f30) 0%, var(--stone-base,#0d1b2a) 60%, #060e1a 100%);
+      border:1px solid rgba(212,175,55,0.35);
+      border-top:2px solid rgba(240,208,96,0.6);
+      border-radius:6px;
+      padding:28px 28px 20px;
+      max-width:520px;width:92%;
+      box-shadow:0 0 60px rgba(212,175,55,0.12), 0 8px 40px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,248,200,0.1);
+      font-family:var(--font,serif);
+      position:relative;overflow:hidden;
+    ">
+
+      <!-- corner ornaments -->
+      <div style="position:absolute;top:8px;left:10px;color:rgba(212,175,55,0.3);font-size:16px;line-height:1">✦</div>
+      <div style="position:absolute;top:8px;right:10px;color:rgba(212,175,55,0.3);font-size:16px;line-height:1">✦</div>
+
+      <!-- title block -->
+      <div style="text-align:center;margin-bottom:6px">
+        <div style="color:rgba(212,175,55,0.5);font-size:11px;letter-spacing:4px;text-transform:uppercase;margin-bottom:8px">
+          ── ✦ ──
+        </div>
+        <div id="floor-summary-title" style="
+          color:var(--gold-shine,#f0d060);
+          font-size:26px;
+          font-weight:700;
+          letter-spacing:3px;
+          text-transform:uppercase;
+          text-shadow:0 0 12px rgba(212,175,55,0.5),0 2px 0 #5c3d0a;
+        ">⚔ ЭТАЖ ${summary.floorNumber} ПРОЙДЕН ⚔</div>
+        <div style="color:rgba(212,175,55,0.5);font-size:11px;letter-spacing:4px;margin-top:8px">── ✦ ──</div>
+      </div>
+
+      <!-- decorative separator -->
+      <div style="height:1px;margin:14px 0;background:linear-gradient(90deg,transparent,rgba(212,175,55,0.4) 20%,rgba(240,208,96,0.7) 50%,rgba(212,175,55,0.4) 80%,transparent)"></div>
+
+      <!-- player rows -->
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+        ${playerRows}
+      </div>
+
+      <!-- countdown bar -->
+      <div style="text-align:center;color:rgba(212,175,55,0.45);font-size:10px;letter-spacing:2px;margin-bottom:6px;text-transform:uppercase">
+        Следующий этаж...
+      </div>
+      <div style="height:3px;background:rgba(0,0,0,0.5);border-radius:2px;overflow:hidden">
+        <div id="fs-bar-inner" style="height:100%;background:linear-gradient(90deg,var(--gold-base,#c8920a),var(--gold-shine,#f0d060));border-radius:2px;"></div>
+      </div>
+
+      <div style="position:absolute;bottom:10px;right:12px;color:rgba(212,175,55,0.25);font-size:13px">✦</div>
     </div>
   `;
-  overlay.style.display = 'flex';
+
+  document.body.appendChild(overlay);
 
   setTimeout(() => {
     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -3819,6 +3943,7 @@ function showFloorSummary(summary) {
 
 function renderEndScreen(won) {
   showScreen('screen-end');
+  if (typeof SFX !== 'undefined') SFX.play(won ? 'victory' : 'defeat');
   const state = S.gameState;
 
   const titleEl = document.getElementById('end-title');

@@ -6,6 +6,7 @@
 <title>Hero Screen — Dark Fantasy RPG</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=MedievalSharp&display=swap" rel="stylesheet">
+<script src="public/sound.js" defer></script>
 
 <style>
 /* ═══════════════════════════════════════════
@@ -689,21 +690,41 @@ body {
 }
 
 /* ═══════════════════════════════════════════
-   ARMY DISPLAY
+   ARMY DISPLAY — FORMATION
 ═══════════════════════════════════════════ */
 .army-section {
   width: 100%;
   max-width: 400px;
 }
 .army-header { margin-bottom: 4px; }
-.army-slots {
+.army-formation {
+  padding: 4px 6px 6px;
+}
+.formation-row-label {
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: center;
+  margin: 3px 0 2px;
+}
+.front-row-label { color: rgba(200,80,20,0.7); }
+.back-row-label  { color: rgba(60,120,200,0.7); }
+.army-row {
   display: flex;
   gap: 5px;
-  padding: 6px 8px;
-  background: linear-gradient(180deg, rgba(8,15,28,0.95) 0%, rgba(4,8,16,0.98) 100%);
-  border: 1px solid rgba(212,175,55,0.3);
+  padding: 5px 6px;
   border-radius: 3px;
-  box-shadow: var(--shadow-inset), 0 0 0 1px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-inset), 0 0 0 1px rgba(0,0,0,0.4);
+}
+.army-row.front-row {
+  background: linear-gradient(180deg, rgba(30,10,5,0.9) 0%, rgba(8,3,2,0.95) 100%);
+  border: 1px solid rgba(200,80,20,0.25);
+  margin-bottom: 3px;
+}
+.army-row.back-row {
+  background: linear-gradient(180deg, rgba(5,10,30,0.9) 0%, rgba(2,4,15,0.95) 100%);
+  border: 1px solid rgba(60,120,200,0.25);
 }
 .unit-slot {
   flex: 1;
@@ -712,6 +733,19 @@ body {
   align-items: center;
   gap: 2px;
   cursor: pointer;
+}
+/* Trait badge on unit icons */
+.unit-trait {
+  position: absolute;
+  top: 1px; right: 2px;
+  font-size: 7px;
+  background: rgba(0,0,0,0.75);
+  border: 1px solid rgba(212,175,55,0.3);
+  border-radius: 2px;
+  padding: 0 2px;
+  line-height: 10px;
+  color: var(--text-silver);
+  pointer-events: none;
 }
 .unit-icon {
   width: 44px; height: 44px;
@@ -1066,6 +1100,12 @@ body {
 .gold-text { color: var(--gold-bright); text-shadow: 0 0 6px var(--gold-glow); }
 .flex-center { display: flex; align-items: center; justify-content: center; }
 .gap-sm { gap: 4px; }
+
+/* Formation drag-over highlight */
+.army-row.drag-over {
+  border-color: var(--gold-shine) !important;
+  box-shadow: var(--shadow-inset), 0 0 10px var(--gold-glow) !important;
+}
 </style>
 </head>
 
@@ -1274,40 +1314,46 @@ body {
         <div class="nav-arrow">▶</div>
       </div>
 
-      <!-- Army -->
+      <!-- Army — Formation -->
       <div class="army-section panel">
-        <span class="panel-label">Армия</span>
+        <span class="panel-label">Армия — Формация</span>
         <div class="divider"></div>
-        <div class="army-slots">
-          <div class="unit-slot tooltip-wrap">
-            <div class="unit-icon">👹<span class="unit-skull">💀</span></div>
-            <div class="unit-count">125</div>
-            <div class="tooltip-box">Орки: 125</div>
+        <div class="army-formation">
+          <div class="formation-row-label front-row-label">⚔ Передний ряд</div>
+          <div class="army-row front-row" id="front-row">
+            <div class="unit-slot tooltip-wrap" draggable="true" data-unit="orcs">
+              <div class="unit-icon" style="position:relative;">👹<span class="unit-trait">🗡</span></div>
+              <div class="unit-count">125</div>
+              <div class="tooltip-box">Орки: 125 — Ближний бой</div>
+            </div>
+            <div class="unit-slot tooltip-wrap" draggable="true" data-unit="trolls">
+              <div class="unit-icon" style="position:relative;">🧌<span class="unit-trait">🔱</span></div>
+              <div class="unit-count">92</div>
+              <div class="tooltip-box">Тролли: 92 — Reach (2 ряда)</div>
+            </div>
+            <div class="unit-slot tooltip-wrap" draggable="true" data-unit="wolves">
+              <div class="unit-icon" style="position:relative;">🐺<span class="unit-trait">🗡</span></div>
+              <div class="unit-count">20</div>
+              <div class="tooltip-box">Волки: 20 — Ближний бой</div>
+            </div>
           </div>
-          <div class="unit-slot tooltip-wrap">
-            <div class="unit-icon">🧌<span class="unit-skull">💀</span></div>
-            <div class="unit-count">92</div>
-            <div class="tooltip-box">Троллии: 92</div>
-          </div>
-          <div class="unit-slot tooltip-wrap">
-            <div class="unit-icon">🔴<span class="unit-skull">💀</span></div>
-            <div class="unit-count">15</div>
-            <div class="tooltip-box">Демоны: 15</div>
-          </div>
-          <div class="unit-slot tooltip-wrap">
-            <div class="unit-icon">💀<span class="unit-skull">💀</span></div>
-            <div class="unit-count">412</div>
-            <div class="tooltip-box">Скелеты: 412</div>
-          </div>
-          <div class="unit-slot tooltip-wrap">
-            <div class="unit-icon">🦇<span class="unit-skull">💀</span></div>
-            <div class="unit-count">19</div>
-            <div class="tooltip-box">Вампиры: 19</div>
-          </div>
-          <div class="unit-slot tooltip-wrap">
-            <div class="unit-icon">🐺<span class="unit-skull">💀</span></div>
-            <div class="unit-count">20</div>
-            <div class="tooltip-box">Волки: 20</div>
+          <div class="formation-row-label back-row-label">🏹 Задний ряд</div>
+          <div class="army-row back-row" id="back-row">
+            <div class="unit-slot tooltip-wrap" draggable="true" data-unit="skeletons">
+              <div class="unit-icon" style="position:relative;">💀<span class="unit-trait">🏹</span></div>
+              <div class="unit-count">412</div>
+              <div class="tooltip-box">Скелеты-лучники: 412 — Дальний бой</div>
+            </div>
+            <div class="unit-slot tooltip-wrap" draggable="true" data-unit="vampires">
+              <div class="unit-icon" style="position:relative;">🦇<span class="unit-trait">🦅</span></div>
+              <div class="unit-count">19</div>
+              <div class="tooltip-box">Вампиры: 19 — Летающий (любая позиция)</div>
+            </div>
+            <div class="unit-slot tooltip-wrap" draggable="true" data-unit="demons">
+              <div class="unit-icon" style="position:relative;">🔴<span class="unit-trait">🔱</span></div>
+              <div class="unit-count">15</div>
+              <div class="tooltip-box">Демоны: 15 — Reach (атакует с заднего ряда)</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1523,20 +1569,140 @@ body {
 </div><!-- /hero-screen -->
 
 <script>
-// Tab switching
+// ── Skill trees per tab (Демоnesса class) ────────────────────────────────────
+const SKILL_TREES = {
+  'Сила': [
+    { emoji: '⚔', name: 'Удар силы',       pips: [1,1,0], theme: 'skill-chaos',   tip: 'Мощный физический удар' },
+    { emoji: '🪓', name: 'Двойной удар',    pips: [1,1,1], theme: 'skill-order',   tip: 'Два удара за ход' },
+    { emoji: '💥', name: 'Сокрушение',      pips: [1,0,0], theme: 'skill-chaos',   tip: 'Снижает защиту врага' },
+    { emoji: '🛡', name: 'Стальная кожа',   pips: [1,1,0], theme: 'skill-concent', tip: 'Постоянный бонус к защите' },
+    { emoji: '🔥', name: 'Адское пламя',    pips: [1,1,1], theme: 'skill-chaos',   tip: 'Урон всем врагам вблизи' },
+    { emoji: '⚡', name: 'Ярость',          pips: [1,0,0], theme: 'skill-chaos',   tip: 'Атака растёт при низком HP' },
+    { emoji: '🗡', name: 'Крит-удар',       pips: [1,1,0], theme: 'skill-order',   tip: '+15% шанс критического удара' },
+    { emoji: '🏔', name: 'Монолит',         pips: [0,0,0], theme: 'skill-concent', tip: 'Не двигаться = +50% защиты' },
+    { emoji: '👊', name: 'Последний шанс',  pips: [0,0,0], theme: 'skill-exp',     tip: 'Сверхудар при HP < 20%' }
+  ],
+  'Дух': [
+    { emoji: '🧘', name: 'Медитация',       pips: [1,1,0], theme: 'skill-meditation', tip: 'Восстановление маны' },
+    { emoji: '📖', name: 'Книжник',         pips: [1,1,1], theme: 'skill-book',        tip: '+1 заклинание в книге' },
+    { emoji: '🎯', name: 'Концентрация',    pips: [1,0,0], theme: 'skill-concent',     tip: 'Усиление заклинаний' },
+    { emoji: '🌟', name: 'Магия Порядка',   pips: [1,1,0], theme: 'skill-order',       tip: 'Усиление магии порядка' },
+    { emoji: '🌀', name: 'Магия Искажения', pips: [1,1,1], theme: 'skill-chaos',       tip: 'Усиление магии хаоса' },
+    { emoji: '☠️', name: 'Магия Хаоса',     pips: [1,1,1], theme: 'skill-necro',       tip: 'Некромантия' },
+    { emoji: '🧪', name: 'Экспериментатор', pips: [1,0,0], theme: 'skill-exp',         tip: 'Бонус к зельям' },
+    { emoji: '🪆', name: 'Кукловод',        pips: [1,1,0], theme: 'skill-doll',        tip: 'Умертвие' },
+    { emoji: '⚗️', name: 'Трансмутация',    pips: [1,0,0], theme: 'skill-trans',       tip: 'Превращение предметов' }
+  ],
+  'Магия': [
+    { emoji: '🔮', name: 'Чёрная магия',    pips: [1,1,0], theme: 'skill-necro',       tip: 'Основа тёмных заклинаний' },
+    { emoji: '💀', name: 'Проклятие',        pips: [1,1,1], theme: 'skill-doll',        tip: 'Снижает все статы врага' },
+    { emoji: '🌑', name: 'Тьма',            pips: [1,0,0], theme: 'skill-chaos',       tip: 'Ослепление врага на 1 ход' },
+    { emoji: '🩸', name: 'Вампиризм',       pips: [1,1,0], theme: 'skill-trans',       tip: '10% HP от нанесённого урона' },
+    { emoji: '🌊', name: 'Магия воды',      pips: [0,0,0], theme: 'skill-concent',     tip: 'Замедление цели' },
+    { emoji: '🌪', name: 'Вихрь теней',     pips: [1,0,0], theme: 'skill-meditation',  tip: 'Урон + уклонение' },
+    { emoji: '👁', name: 'Дурной глаз',     pips: [0,0,0], theme: 'skill-book',        tip: 'Снижает меткость врага' },
+    { emoji: '🔗', name: 'Цепи тьмы',      pips: [0,0,0], theme: 'skill-order',       tip: 'Обездвиживает врага' },
+    { emoji: '🌀', name: 'Портал',          pips: [0,0,0], theme: 'skill-exp',         tip: 'Телепортация в бою' }
+  ]
+};
+
+// ── Render skills grid for a given tab ───────────────────────────────────────
+function renderSkills(tabName) {
+  const skills = SKILL_TREES[tabName] || [];
+  const grid = document.querySelector('.skills-grid');
+  if (!grid) return;
+
+  grid.innerHTML = skills.map(s => {
+    const pipsHtml = s.pips.map(p =>
+      `<div class="skill-pip${p === 0 ? ' empty' : ''}"></div>`
+    ).join('');
+    return `
+      <div class="skill-slot ${s.theme} tooltip-wrap">
+        <div class="skill-icon-wrap">
+          <div class="skill-icon">${s.emoji}</div>
+          <div class="skill-pips">${pipsHtml}</div>
+        </div>
+        <div class="skill-name">${s.name}</div>
+        <div class="tooltip-box">${s.tip}</div>
+      </div>`;
+  }).join('');
+
+  // Re-attach click feedback
+  grid.querySelectorAll('.skill-slot').forEach(slot => {
+    slot.addEventListener('click', () => {
+      slot.style.filter = 'brightness(1.3)';
+      setTimeout(() => slot.style.filter = '', 180);
+    });
+  });
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
 document.querySelectorAll('.skill-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.skill-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
+    renderSkills(tab.textContent.trim());
   });
 });
-// Slot click visual feedback
-document.querySelectorAll('.equip-slot, .unit-slot, .reward-slot, .skill-slot').forEach(slot => {
+
+// Initial render with the default active tab
+const activeTab = document.querySelector('.skill-tab.active');
+if (activeTab) renderSkills(activeTab.textContent.trim());
+
+// ── Equipment & reward slot click feedback ───────────────────────────────────
+document.querySelectorAll('.equip-slot, .reward-slot').forEach(slot => {
   slot.addEventListener('click', () => {
     slot.style.filter = 'brightness(1.3)';
     setTimeout(() => slot.style.filter = '', 180);
   });
 });
+
+// ── Army formation drag-and-drop ──────────────────────────────────────────────
+let dragSrc = null;
+
+function initDrag() {
+  document.querySelectorAll('.unit-slot[draggable]').forEach(slot => {
+    slot.addEventListener('dragstart', e => {
+      dragSrc = slot;
+      e.dataTransfer.effectAllowed = 'move';
+      slot.style.opacity = '0.5';
+    });
+    slot.addEventListener('dragend', () => {
+      slot.style.opacity = '';
+      dragSrc = null;
+      document.querySelectorAll('.army-row').forEach(r => r.classList.remove('drag-over'));
+    });
+    slot.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+    slot.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === slot) return;
+      // Swap DOM positions
+      const srcParent = dragSrc.parentNode;
+      const dstParent = slot.parentNode;
+      const srcNext   = dragSrc.nextSibling;
+      dstParent.insertBefore(dragSrc, slot);
+      srcParent.insertBefore(slot, srcNext);
+      initDrag(); // re-bind after DOM change
+    });
+  });
+  document.querySelectorAll('.army-row').forEach(row => {
+    row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('drag-over'); });
+    row.addEventListener('dragleave',  () => row.classList.remove('drag-over'));
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      row.classList.remove('drag-over');
+      if (!dragSrc) return;
+      // Move slot to this row if dropped on empty space
+      if (!e.target.closest('.unit-slot')) row.appendChild(dragSrc);
+      initDrag();
+    });
+  });
+}
+
+initDrag();
 </script>
 </body>
 </html>

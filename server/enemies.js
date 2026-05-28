@@ -322,6 +322,52 @@ const ENEMY_TYPES = {
     ai: 'low_hp_target'
   },
 
+  // ── RANGED ARCHERS ───────────────────────────────────────────────────────────
+  goblin_archer: {
+    id: 'goblin_archer', name: 'Гоблин-лучник', symbol: 'A',
+    description: 'Мелкий стрелок с самодельным луком. Предпочитает держаться на расстоянии.',
+    tier: 1, baseHp: 28, baseAttack: 10, baseDefense: 1, attackRange: 4.5,
+    expReward: 18, goldReward: [4, 9], isUndead: false,
+    abilities: ['attack', 'arrow_shot'],
+    lootTable: [
+      POTION_SMALL,
+      itemLoot('ring_copper_atk', 0.10),
+      itemLoot('boots_leather', 0.07)
+    ].filter(Boolean),
+    ai: 'random'
+  },
+
+  skeleton_archer: {
+    id: 'skeleton_archer', name: 'Костяной лучник', symbol: '↑',
+    description: 'Скелет с незримым луком. Стреляет отравленными стрелами через весь зал.',
+    tier: 2, baseHp: 45, baseAttack: 14, baseDefense: 2, attackRange: 4.5,
+    expReward: 38, goldReward: [8, 18], isUndead: true,
+    abilities: ['attack', 'arrow_shot', 'poison_arrow'],
+    lootTable: [
+      ANTIDOTE,
+      POTION_SMALL,
+      itemLoot('amulet_bone', 0.09),
+      itemLoot('boots_leather', 0.08)
+    ].filter(Boolean),
+    ai: 'low_hp_target'
+  },
+
+  dark_ranger: {
+    id: 'dark_ranger', name: 'Тёмный стрелок', symbol: 'R',
+    description: 'Элитный стрелок в чёрных доспехах. Мастер залповой стрельбы и яда.',
+    tier: 3, baseHp: 72, baseAttack: 22, baseDefense: 5, attackRange: 5.5,
+    expReward: 62, goldReward: [16, 32], isUndead: false,
+    abilities: ['attack', 'arrow_shot', 'poison_arrow', 'multishot'],
+    lootTable: [
+      POTION_MED,
+      ANTIDOTE,
+      itemLoot('boots_wind', 0.11),
+      itemLoot('pants_reinforced', 0.09),
+      itemLoot('ring_silver', 0.07)
+    ].filter(Boolean),
+    ai: 'low_hp_target'
+  },
+
   // ── BOSSES ────────────────────────────────────────────────────────────────────
   dragon_boss: {
     id: 'dragon_boss', name: 'Дракон Тьмы', symbol: 'Ω',
@@ -407,12 +453,12 @@ function createEnemy(typeId, scaleFactor = 1.0) {
 }
 
 function getEnemiesForFloor(floor) {
-  if (floor <= 2)  return ['goblin', 'skeleton', 'rat_swarm', 'cave_bat'];
-  if (floor <= 4)  return ['goblin', 'skeleton', 'kobold', 'zombie', 'giant_spider'];
-  if (floor <= 6)  return ['zombie', 'dark_mage', 'werewolf', 'giant_spider', 'shadow'];
-  if (floor <= 8)  return ['troll', 'vampire', 'harpy', 'death_knight', 'golem'];
-  if (floor <= 10) return ['lich', 'demon', 'witch', 'nightmare'];
-  return ['frost_giant', 'nightmare', 'lich', 'demon', 'witch'];
+  if (floor <= 2)  return ['goblin', 'skeleton', 'rat_swarm', 'cave_bat', 'goblin_archer'];
+  if (floor <= 4)  return ['goblin', 'skeleton', 'kobold', 'zombie', 'giant_spider', 'goblin_archer', 'skeleton_archer'];
+  if (floor <= 6)  return ['zombie', 'dark_mage', 'werewolf', 'giant_spider', 'shadow', 'skeleton_archer'];
+  if (floor <= 8)  return ['troll', 'vampire', 'harpy', 'death_knight', 'golem', 'dark_ranger'];
+  if (floor <= 10) return ['lich', 'demon', 'witch', 'nightmare', 'dark_ranger'];
+  return ['frost_giant', 'nightmare', 'lich', 'demon', 'witch', 'dark_ranger'];
 }
 
 function getBossForFloor(floor) {

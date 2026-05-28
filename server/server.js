@@ -7,8 +7,9 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { GameRoom, GAME_PHASE } = require('./game');
 const { saveScore, getTopScores, savePlayerStats } = require('./database');
-const { initBonusSystem, getCurrentBonus } = require('./bonuses');
+const { initBonusSystem, getCurrentBonus, getTimeUntilNext } = require('./bonuses');
 const { applyLevelUpOption } = require('./classes');
+const { getLegacy, updateLegacy, getLockedPerksWithHints } = require('./meta');
 
 const app = express();
 const server = http.createServer(app);
@@ -42,7 +43,16 @@ app.get('/api/scores', (req, res) => {
 });
 
 app.get('/api/bonus', (req, res) => {
-  res.json(getCurrentBonus());
+  const { bonus, expiresAt } = getCurrentBonus();
+  res.json({ bonus, expiresAt, timeUntilNext: getTimeUntilNext() });
+});
+
+app.get('/api/legacy/:playerName', (req, res) => {
+  const name = req.params.playerName?.trim();
+  if (!name) return res.status(400).json({ error: 'Укажите имя игрока.' });
+  const legacy  = getLegacy(name);
+  const locked  = getLockedPerksWithHints(name);
+  res.json({ legacy, locked });
 });
 
 app.get('/api/rooms', (req, res) => {
@@ -333,6 +343,13 @@ io.on('connection', (socket) => {
     cb?.({ ok: true });
   });
 
+  socket.on('choose_floor_reward', ({ rewardId }, cb) => {
+    const room = rooms.get(socket.data.roomId);
+    if (!room) return cb?.({ ok: false, reason: 'Комната не найдена.' });
+    const result = room.chooseFloorReward(socket.id, rewardId);
+    cb?.(result);
+  });
+
   socket.on('chat_message', ({ message }) => {
     const room = rooms.get(socket.data.roomId);
     if (!room) return;
@@ -390,12 +407,20 @@ function handleGameEnd(room) {
                 + (room.floorNumber * 200)
                 + (won ? 1000 : 0);
     totalScore += score;
-    savePlayerStats(p.name, {
+
+    savePlayerStats(p.name, { kills, gold: p.character.gold, level: p.character.level, won });
+
+    // Update legacy progress and broadcast any newly unlocked perks
+    const { newPerks } = updateLegacy(p.name, {
       kills,
       gold: p.character.gold,
-      level: p.character.level,
+      floor: room.floorNumber,
       won
     });
+    if (newPerks.length > 0 && room.io) {
+      const msg = `🏆 ${p.name} разблокировал: ${newPerks.map(pk => `${pk.icon} ${pk.name}`).join(', ')}`;
+      room.io.to(room.id).emit('log', { ts: Date.now(), msg });
+    }
   }
 
   if (players.length > 0) {
